@@ -405,3 +405,68 @@ CREATE DATABASE lease CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 
 
 
+# 公寓信息管理接口开发
+
+### 房间支付方式接口开发
+
+#### 1 查询所有的支付方式
+
+* 由于数据做数据分析会有用，删除并不是真正的删除，做逻辑上的删除。PayMentType表有一个字段来表示是否删除。
+* 查询的时候，就不要查询已经逻辑删除的数据。所以每次查询都要在sql后添加where 语句，过滤掉逻辑删除的。但是每次查询都要这样，很繁琐。可以使用mybaits-Plus 提供的逻辑删除。
+
+**第一种方式**
+
+​	修改配置文件如下
+
+```yaml
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: isDeleted   #全局逻辑删除的实体字段名    除了配置文件，也可以用@TableLogic实现逻辑删除功能
+      logic-delete-value: 1    #逻辑已经删除值（默认为1）
+      logic-not-delete-value: 0 #逻辑未删除值（默认为0）
+```
+
+**第二种方式**
+
+ 添加注解@TableLogic 。
+
+**tips**：
+
+* 开启mybaits-plus 的逻辑删除后，只对自动注入的sql有效，手写的sql无效。
+* 开启逻辑删除后，使用mp的删除方法，也会变成逻辑删除。delete语句，变为update语句。
+
+#### 2 保存或者更新支付方式
+
+ 问题： 前端更新或保存数据，一般都不会填写更新时间或者保存时间。，所以这样问题可以这样解决，后端接受到前端传来的json对象，手动set时间。但是每次都set时间，很繁琐。可以使用mp的自动注入。
+
+* 确定注入实际如下  fill的使用
+
+```java
+ @TableField(value = "create_time",fill = FieldFill.INSERT)
+ private Date createTime;
+```
+
+* 确定注入什么.需要实现MetaObjectHander如下
+
+```java
+@Component
+public class MybatisMetaObjectHandler implements MetaObjectHandler {
+    @Override
+    public void insertFill(MetaObject metaObject) {
+        this.strictInsertFill(metaObject, "createTime", Date.class, new Date());
+
+    }
+
+    @Override
+    public void updateFill(MetaObject metaObject) {
+        this.strictUpdateFill(metaObject, "updateTime", Date.class, new Date());
+
+    }
+}
+```
+
+#### 3 根据id删除支付方式
+
+* 由于开启了逻辑删除，删除操作变成了更新操作。逻辑意义上的删除。
+
