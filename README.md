@@ -35,7 +35,15 @@ vue3 +springboot3 前后端分离项目。
 
 详见lease.sql	
 
+1. 创建数据库
 
+```sql
+CREATE DATABASE lease CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+```
+
+2. **导入数据库脚本**
+
+   将资料中的`lease.sql`脚本导入`lease`数据库，其中包含了建表语句和少量的原始数据。
 
 ## 开发环境
 
@@ -392,3 +400,8 @@ vue3 +springboot3 前后端分离项目。
       **注意**：
 
       `ip`需要根据实际情况做出修改
+  
+  
+
+
+
