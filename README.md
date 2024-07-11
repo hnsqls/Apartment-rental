@@ -500,3 +500,115 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
 
 点击删除，前端获取执行的对象，传json给后端，后端用@RequestBody 接受json并变为对象。由于开启了逻辑删除，所有的删除语句就变成了更新语句.
 
+###  标签管理
+
+![image-20240711140755419](images/README.assets/image-20240711140755419.png)
+
+#### 1. （根据类型）查询标签列表
+
+ 类型是可选的。可以传可以不传。@RequestParam(required = false) 
+
+传参时发现错误。
+
+![image-20240711141508055](images/README.assets/image-20240711141508055.png)
+
+![image-20240711141538850](images/README.assets/image-20240711141538850.png)
+
+```java
+ Failed to convert value of type 'java.lang.String' to required type 'com.ls.lease.model.enums.ItemType'; Failed to convert from type [java.lang.String] to type [@org.springframework.web.bind.annotation.RequestParam com.ls.lease.model.enums.ItemType] for value '1']
+```
+
+类型转化失败。String转化为ItemType类型失败
+
+上述type参数，在数据库是tinyint，实体类中是`ItemType`枚举类型，前端中是json。
+
+具体过程涉及类型转化如下
+
+* **请求流程**
+
+![image-20240711142129518](images/README.assets/image-20240711142129518.png)
+
+**说明**
+
+- SpringMVC中的`WebDataBinder`组件负责将HTTP的请求参数绑定到Controller方法的参数，并实现参数类型的转换。
+- Mybatis中的`TypeHandler`用于处理Java中的实体对象与数据库之间的数据类型转换。
+
+
+
+* **响应流程**
+
+![image-20240711142219876](images/README.assets/image-20240711142219876.png)
+
+**说明**
+
+- SpringMVC中的`HTTPMessageConverter`组件负责将Controller方法的返回值（Java对象）转换为HTTP响应体中的JSON字符串，或者将请求体中的JSON字符串转换为Controller方法中的参数（Java对象），例如下一个接口**保存或更新标签信息**
+
+![image-20240711142341070](images/README.assets/image-20240711142341070.png)
+
+下面介绍一下每个环节的类型转换原理
+
+- **WebDataBinder枚举类型转换**
+
+  `WebDataBinder`依赖于[`Converter`](https://docs.spring.io/spring-framework/reference/core/validation/convert.html)实现类型转换，若Controller方法声明的`@RequestParam`参数的类型不是`String`，`WebDataBinder`就会自动进行数据类型转换。SpringMVC提供了常用类型的转换器，例如`String`到`Integer`、`String`到`Date`，`String`到`Boolean`等等，其中也包括`String`到枚举类型，但是`String`到枚举类型的默认转换规则是根据实例名称（"APARTMENT"）转换为枚举对象实例（ItemType.APARTMENT）。若想实现`code`属性到枚举对象实例的转换，需要自定义`Converter`，代码如下，具体内容可参考[官方文档](https://docs.spring.io/spring-framework/reference/core/validation/convert.html#core-convert-Converter-API)。
+
+- 自定义转换类型
+
+  - 1. 实现Converter接口  
+
+    ```java
+    /**
+     * 自定义 Converter 方式
+     * 实现Converter接口 import org.springframework.core.convert.converter.Converter;
+     */
+    //在ioc中注册，方便使用
+    @Component
+    public class StringToItemType implements Converter<String,ItemType> {
+    
+        @Override
+        public ItemType convert(String code) {
+            //如果新增枚举实例就新增一个if
+    //        if ("1".equals(code)){
+    //            return ItemType.APARTMENT;
+    //        } else if ("2".equals(code)) {
+    //            return ItemType.ROOM;
+    //        }
+    
+            //用枚举类型的静态方法，获取所有枚举类型的实例
+            ItemType[] values = ItemType.values();
+    
+            //遍历枚举类型实例，如果枚举类型的实例的code等于参数code，就返回这个枚举实例
+            for (ItemType value : values) {
+                if (value.getCode().equals(Integer.valueOf(code))){
+                    return value;
+                }
+            }
+            throw new IllegalArgumentException("code:" + code  +"非法");
+        }
+    }
+    ```
+
+    2. 在SpringMVC中注册自定义转换类
+
+       ```java
+       @Configuration
+       public class WebMvcConfiguration implements WebMvcConfigurer {
+       
+           //添加自定义Converter
+           @Autowired
+           private StringToItemType stringToItemType;
+           @Override
+           public void addFormatters(FormatterRegistry registry) {
+               registry.addConverter(stringToItemType);
+           }
+       }
+       
+       ```
+
+       这样WebDateBind就能够转化String到枚举。（Springmvc虽然提供了String->枚举类型，但是不能满足外面的要求，Spring提供的自动转化是根据string的内容找枚举实例，我们需要根据string的内容对应的序号获取枚举类型）。
+
+#### 2. 更新或报错标签
+
+#### 3. 删除标签操作
+
+​       
+
