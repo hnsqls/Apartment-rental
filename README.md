@@ -610,5 +610,98 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
 
 #### 3. 删除标签操作
 
-​       
+###  自定义类型转换工厂
 
+ 在标签管理中由于WebDatabind不能按照我们的要求将String 转换为枚举类，我们自定义了一个转换类。并在webmvc中注册。
+
+但是我们有很多的枚举类型都需要考虑类型转换这个问题，按照上述思路，我们需要为每个枚举类型都定义一个Converter，并且每个Converter的转换逻辑都完全相同，针对这种情况，我们使用[`ConverterFactory`](https://docs.spring.io/spring-framework/reference/core/validation/convert.html#core-convert-ConverterFactory-SPI)接口更为合适，这个接口可以将同一个转换逻辑应用到一个接口的所有实现类，因此我们可以定义一个`BaseEnum`接口，然后另所有的枚举类都实现该接口，然后就可以自定义`ConverterFactory`，集中编写各枚举类的转换逻辑了。具体实现如下：
+
+```java
+public interface BaseEnum {
+    Integer getCode();
+    String getName();
+}
+```
+
+```java
+@Component
+public class StringToBaseEnumConverterFactory implements ConverterFactory<String, BaseEnum> {
+    @Override
+    public <T extends BaseEnum> Converter<String, T> getConverter(Class<T> targetType) {
+        return new Converter<String, T>() {
+            @Override
+            public T convert(String source) {
+
+                for (T enumConstant : targetType.getEnumConstants()) {
+                    if (enumConstant.getCode().equals(Integer.valueOf(source))) {
+                        return enumConstant;
+                    }
+                }
+                throw new IllegalArgumentException("非法的枚举值:" + source);
+            }
+        };
+    }
+}
+```
+
+### **TypeHandler枚举类型转换**
+
+Mybatis预置的`TypeHandler`可以处理常用的数据类型转换，例如`String`、`Integer`、`Date`等等，其中也包含枚举类型，但是枚举类型的默认转换规则是枚举对象实例（ItemType.APARTMENT）和实例名称（"APARTMENT"）相互映射。若想实现`code`属性到枚举对象实例的相互映射，需要自定义`TypeHandler`。
+
+不过MybatisPlus提供了一个[通用的处理枚举类型的TypeHandler](https://baomidou.com/pages/8390a4/)。其使用十分简单，只需在`ItemType`枚举类的`code`属性上增加一个注解`@EnumValue`，Mybatis-Plus便可完成从`ItemType`对象到`code`属性之间的相互映射，具体配置如下。
+
+```java
+public enum ItemType {
+
+    APARTMENT(1, "公寓"),
+    ROOM(2, "房间");
+
+    @EnumValue
+    private Integer code;
+    private String name;
+
+    ItemType(Integer code, String name) {
+        this.code = code;
+        this.name = name;
+    }
+}
+```
+
+### **HTTPMessageConverter枚举类型转换**
+
+`HttpMessageConverter`依赖于Json序列化框架（默认使用Jackson）。其对枚举类型的默认处理规则也是枚举对象实例（ItemType.APARTMENT）和实例名称（"APARTMENT"）相互映射。不过其提供了一个注解`@JsonValue`，同样只需在`ItemType`枚举类的`code`属性上增加一个注解`@JsonValue`，Jackson便可完成从`ItemType`对象到`code`属性之间的互相映射。具体配置如下，详细信息可参考Jackson[官方文档](https://fasterxml.github.io/jackson-annotations/javadoc/2.8/com/fasterxml/jackson/annotation/JsonValue.html)。
+
+```java
+public enum ItemType {
+
+    APARTMENT(1, "公寓"),
+    ROOM(2, "房间");
+
+    @EnumValue
+  	@JsonValue
+    private Integer code;
+    private String name;
+
+    ItemType(Integer code, String name) {
+        this.code = code;
+        this.name = name;
+    }
+}
+```
+
+### 为什么使用枚举后，类型转换这么多麻烦还要用枚举，而不直接用integer表示状态。
+
+1. **类型安全**：
+   使用枚举类型可以确保状态的取值只能是预定义的值之一，这避免了使用整数时可能出现的错误值。例如，如果你使用整数来表示订单的状态（如1表示待支付，2表示已支付），那么代码中的任何错误都可能导致使用无效的整数值（如3或-1），这可能会导致运行时错误或逻辑错误。而枚举类型强制类型安全，确保状态值只能是定义好的那几个。
+2. **清晰易读**：
+   枚举类型的命名通常比整数更具描述性，使得代码更加清晰易懂。例如，使用`OrderStatus.PENDING_PAYMENT`比使用整数`1`来表示待支付状态要直观得多。这不仅提高了代码的可读性，也方便了团队成员之间的理解和协作。
+3. **易于扩展和维护**：
+   随着业务逻辑的发展，可能需要添加新的状态或修改现有状态。使用枚举类型可以很容易地通过添加新的枚举常量或修改现有常量来实现，而不需要修改大量使用这些状态的代码。相比之下，如果使用整数表示状态，则可能需要在多处代码中更新状态值，这既繁琐又容易出错。
+4. **支持方法和属性**：
+   枚举类型可以包含方法和属性，这使得它们能够包含比简单整数更多的信息。例如，你可以为每个枚举常量添加一个描述性字符串，或者定义一个方法来获取与该状态相关的特定信息。这些功能对于表示复杂的状态逻辑非常有用。
+5. **支持`switch`语句**：
+   在Java中，使用枚举类型作为`switch`语句的表达式可以使代码更加清晰和易于维护。从Java 7开始，`switch`语句还支持字符串，但枚举类型通常仍然是更好的选择，因为它们提供了更强的类型安全性和更清晰的语义。
+6. **可序列化且单例**：
+   枚举类型是自动可序列化的，并且它们的每个实例在JVM中都是唯一的（即单例）。这意味着你可以安全地将枚举类型的实例作为序列化对象传输，而无需担心它们的唯一性或序列化问题。
+
+综上所述，使用枚举类型来表示状态是Java开发中一种更加安全、清晰、易于扩展和维护的方式。
