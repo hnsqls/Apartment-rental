@@ -3,8 +3,10 @@ package com.ls.lease.web.admin.controller.apartment;
 
 import com.ls.lease.common.result.Result;
 import com.ls.lease.model.entity.LeaseTerm;
+import com.ls.lease.web.admin.service.LeaseTermService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,22 +15,27 @@ import java.util.List;
 @RequestMapping("/admin/term")
 @RestController
 public class LeaseTermController {
+    @Autowired
+    private LeaseTermService leaseTermService;
 
-    @GetMapping("list")
+    @GetMapping("/list")
     @Operation(summary = "查询全部租期列表")
     public Result<List<LeaseTerm>> listLeaseTerm() {
-        return Result.ok();
+        List<LeaseTerm> list = leaseTermService.list();
+        return Result.ok(list);
     }
 
-    @PostMapping("saveOrUpdate")
+    @PostMapping("/saveOrUpdate")
     @Operation(summary = "保存或更新租期信息")
     public Result saveOrUpdate(@RequestBody LeaseTerm leaseTerm) {
+        leaseTermService.saveOrUpdate(leaseTerm);
         return Result.ok();
     }
 
     @DeleteMapping("deleteById")
     @Operation(summary = "根据ID删除租期")
     public Result deleteLeaseTermById(@RequestParam Long id) {
+        leaseTermService.removeById(id);
         return Result.ok();
     }
 }

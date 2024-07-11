@@ -409,6 +409,8 @@ CREATE DATABASE lease CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 
 ### 房间支付方式接口开发
 
+![image-20240711125803829](images/README.assets/image-20240711125803829.png)
+
 #### 1 查询所有的支付方式
 
 * 由于数据做数据分析会有用，删除并不是真正的删除，做逻辑上的删除。PayMentType表有一个字段来表示是否删除。
@@ -469,4 +471,32 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
 #### 3 根据id删除支付方式
 
 * 由于开启了逻辑删除，删除操作变成了更新操作。逻辑意义上的删除。
+
+
+
+### 房间租期管理
+
+#### 1. 查询所有租期
+
+![image-20240711130011146](images/README.assets/image-20240711130011146.png)
+
+注意：已经实现了逻辑删除。在查找的时候使用mp的动态sql会自动做where语句。
+
+#### 2.保存或更新租期
+
+![image-20240711130914735](images/README.assets/image-20240711130914735.png)
+
+注意：保存和修改
+
+保存：前端传json对象，不传id就是保存
+
+修改：前端传json对象，传id就是修改， 在mp代理的动态sql是先根据id查看信息，然后在update更新信息.
+
+#### 3. 根据id删除租期
+
+![image-20240711130914735](images/README.assets/image-20240711130914735.png)
+
+
+
+点击删除，前端获取执行的对象，传json给后端，后端用@RequestBody 接受json并变为对象。由于开启了逻辑删除，所有的删除语句就变成了更新语句.
 
