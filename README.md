@@ -792,3 +792,31 @@ JOIN（内连接）
 
 + **基本概念**：`LEFT JOIN`（或称为左外连接）会返回左表（`LEFT JOIN` 语句中指定的第一个表）的所有行，即使右表中没有匹配的行。如果右表中没有匹配的行，则结果中这些行的右表部分将包含 NULL。
 + **用途**：当你想要从左表中选择所有的行，并且仅当它们在右表中也有匹配时，才选择右表中的行，这时可以使用 `LEFT JOIN`。这常用于想要保留左表中的所有记录，同时获取与右表匹配的信息（如果有的话）的场景。
+
+发现还是不能显示k的数据（k对应v为空）。left join 会保存左表的所有，那么为什么会没有呢？
+
+​	这是因为我们使用了逻辑删除，sql语句的后的过滤条件，
+
+```sql
+where k.is_deleted = 0
+          and v.is_deleted = 0;
+```
+
+由于右边对应左表的值时空的，即右表中没有匹配的行，则结果中这些行的右表部分将包含 NULL。就不满足逻辑删除的v.is_deleted = 0的条件，自然就没有该数据。
+
+一般我们对于使用逻辑删除，left join 的连接，过滤条件发生变化，将 v.is_deleted = 0。移动到表连接的过程，如下。
+
+```sql
+ select k.id,
+               k.name,
+               v.id attr_value_id,
+               v.name attr_value_name,
+               v.attr_key_id
+        from attr_key k
+                left join attr_value v
+                      on k.id = v.attr_key_id  and v.is_deleted = 0
+        where k.is_deleted = 0
+```
+
+
+

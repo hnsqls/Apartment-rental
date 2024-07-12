@@ -22,9 +22,9 @@
                v.attr_key_id
         from attr_key k
                 left join attr_value v
-                      on k.id = v.attr_key_id
+                      on k.id = v.attr_key_id  and v.is_deleted = 0
         where k.is_deleted = 0
-          and v.is_deleted = 0;
+
 
     </select>
 </mapper>
