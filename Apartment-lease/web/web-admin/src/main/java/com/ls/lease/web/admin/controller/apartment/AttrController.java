@@ -58,13 +58,19 @@ public class AttrController {
     @Operation(summary = "根据id删除属性名称")
     @DeleteMapping("key/deleteById")
     public Result removeAttrKeyById(@RequestParam Long attrKeyId) {
-//        attrKeyService.removeById(attrKeyId);
+        //删除属性名称，属性值也没必要存在， 也要删除
+
+        attrKeyService.removeById(attrKeyId);
+        LambdaQueryWrapper<AttrValue> queryWrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<AttrValue> eq = queryWrapper.eq(AttrValue::getAttrKeyId, attrKeyId);
+        attrValueService.remove(eq);
         return Result.ok();
     }
 
     @Operation(summary = "根据id删除属性值")
     @DeleteMapping("value/deleteById")
     public Result removeAttrValueById(@RequestParam Long id) {
+        attrValueService.removeById(id);
         return Result.ok();
     }
 
