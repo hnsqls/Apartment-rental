@@ -24,3 +24,9 @@ mybatis-plus:
       logic-delete-field: isDeleted   #全局逻辑删除的实体字段名    除了配置文件，也可以用@TableLogic实现逻辑删除功能
       logic-delete-value: 1    #逻辑已经删除值（默认为1）
       logic-not-delete-value: 0 #逻辑未删除值（默认为0）
+
+minio:
+  endpoint: http://192.168.231.100:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket-name: lease

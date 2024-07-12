@@ -868,3 +868,86 @@ where k.is_deleted = 0
 
 #### 3. 根据城市id查询区域信息
 
+
+
+### 图片上传管理
+
+**1. 图片上传流程**
+
+下图展示了新增房间或公寓时，上传图片的流程。
+
+![image-20240712161425579](images/README.assets/image-20240712161425579.png)
+
+2. 配置Minio 
+
+   1. 引入Minio Maven依赖
+
+      ```xml
+      <dependency>
+          <groupId>io.minio</groupId>
+          <artifactId>minio</artifactId>
+      </dependency>
+      ```
+
+   2. 配置Minio相关参数
+
+   在`application.yml`中配置Minio的`endpoint`、`accessKey`、`secretKey`、`bucketName`等参数
+
+   ```yaml
+   minio:
+     endpoint: http://<hostname>:<port>
+     access-key: <access-key>
+     secret-key: <secret-key>
+     bucket-name: <bucket-name>
+   ```
+
+   3. 创建配置参数类,（也可以直接用@Value注入）
+
+   ```java
+   /**
+    * 配置参数类
+    * @ConfigurationProperties(prefix = "minio")
+    * 根据类的属性自动映射，yaml文件中minio下的属性值。
+    * 注意要在在配置类上注册
+    *
+    */
+   
+   @Data
+   @ConfigurationProperties(prefix = "minio")
+   public class MinioProperties{
+        private String endpoint;
+        private String accessKey;
+        private String secretKey;
+   
+        private String bucketName;
+   
+   }
+   
+   ```
+
+   4. 创建配置类
+
+   ```java
+   @Configuration
+   //@EnableConfigurationProperties(MinioProperties.class) //注册
+   @ConfigurationPropertiesScan("com.ls.lease.common.minio")  //注册 配置参数类
+   public class MinioConfiguration {
+   
+       @Autowired
+       private MinioProperties minioProperties;
+       @Bean
+       public MinioClient minioClient(){
+           MinioClient minioClient = MinioClient.builder()
+                   .endpoint(minioProperties.getEndpoint())
+                   .credentials(minioProperties.getAccessKey(), minioProperties.getAccessKey())
+                   .build();
+   
+           return minioClient;
+       }
+   }
+   
+   ```
+
+   
+
+   
