@@ -1031,3 +1031,32 @@ where k.is_deleted = 0
    * 设置响应体，内容类型，不然这种处理方式时字符流，浏览器访问字符流的文件会下载，而不是查看。
 
    ​	
+
+   处理异常的巧妙的解决办法：try{}catch(){}
+
+   * 在处理异常时，我们可以将service层的异常全部抛出在controller解决，try{}catch(){},捕获所有异常返回失败就行。而不是根据service的返回结果判断是否出现异常。
+   * 如下例子
+
+   ```java
+   @Tag(name = "文件管理")
+   @RequestMapping("/admin/file")
+   @RestController
+   public class FileUploadController {
+   
+       @Autowired
+       private FileService fileService;
+   
+       @Operation(summary = "上传文件")
+       @PostMapping("/upload")
+       public Result<String> upload(@RequestParam MultipartFile file) {
+           try {
+               String url = fileService.upload(file);
+               return Result.ok(url);
+           } catch (Exception e) {
+               return Result.fail();
+           }
+       }
+   }
+   ```
+
+   
