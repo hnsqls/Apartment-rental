@@ -1059,4 +1059,34 @@ where k.is_deleted = 0
    }
    ```
 
+   #### 全局异常处理器
+
+   由于处理异常的逻辑都是一样的，异常全都抛出在controller层处理，controller层trycatch处理，每个controller接口几乎都要这样处理异常。每个接口都要写这个逻辑，就显得臃肿，SpringMvc提供了全局异常处理功能,可以将所有处理异常的逻辑集中起来，进而统一处理所有异常，使代码更容易维护。
+
+   具体用法如下，详细信息可参考[官方文档](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-exceptionhandler.html)：
+
+   在**common模块**中创建`com.ls.lease.common.exception.GlobalExceptionHandler`类，内容如下
+
+   ```java
+   /**
+    * springmvc 提供了全局异常处理功能
+    * `@ControllerAdvice`用于声明处理全局Controller方法异常的类
+    * `@ExceptionHandler`用于声明处理异常的方法，`value`属性用于声明该方法处理的异常类型
+    * `@ResponseBody`表示将方法的返回值作为HTTP的响应体
+    */
+   
+   @ControllerAdvice
+   public class GlobalExceptionHandler {
+   
+       @ExceptionHandler(Exception.class)
+       @ResponseBody
+       public Result error(Exception e){
+           e.printStackTrace();
+           return Result.fail();
+       }
+   }
+   ```
+
+   
+
    
