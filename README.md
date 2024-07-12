@@ -724,3 +724,71 @@ public enum ItemType {
 
 #### 3.根据id删除配套信息
 
+### 房间基本属性管理
+
+![image-20240712101111856](images/README.assets/image-20240712101111856.png)
+
+表结构
+
+![image-20240712101313586](images/README.assets/image-20240712101313586.png)
+
+#### 1. 查询所有属性值以及对应的属性名称。
+
+涉及多表查询，mybaitsPlus不能满足我们的需求，就自定义sql。
+
+controller层调用service层接口方法，service层接口方法实现（调用dao层），dao层绑定mapper.xml编写sql语句。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ls.lease.web.admin.mapper.AttrKeyMapper">
+    <resultMap id="AttrKeyVoMap" type="com.ls.lease.web.admin.vo.attr.AttrKeyVo">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <collection property="attrValueList" ofType="com.ls.lease.model.entity.AttrValue">
+            <id property="id" column="attr_value_id"/>
+            <result property="name" column="attr_value_name"/>
+            <result property="attrKeyId" column="attr_key_id"/>
+        </collection>
+
+    </resultMap>
+
+    <select id="listAttrInfo" resultMap="AttrKeyVoMap">
+        select k.id,
+               k.name,
+               v.id attr_value_id,
+               v.name attr_value_name,
+               v.attr_key_id
+        from attr_key k
+                 join attr_value v
+                      on k.id = v.attr_key_id
+        where k.is_deleted = 0
+          and v.is_deleted = 0;
+
+    </select>
+</mapper>
+```
+
+回顾一下：
+
+* 两表查询，外键放在多方，一对多，多对一，看需求，本次需求显然是一对多。因为要涉及量表查询后数据的保存，所以定义了新的VO。新的Vo应该保证传给前端的json的格式{"code":xx,"msg" : xxx,"data": {}}。应主要关注于data 的格式。本次查询data应该是list（属性值）套list(属性名称)。
+* 自定义sql，表的join，以及自定义映射，在自定义表的二级映射时，如果数据时集合使用collection标签。
+* idea中sql语句提示，要idea连接数据库，然后在mapper.xml中简历新session。
+
+上述代码有bug，这种情况下
+
+​	属性值下面没有对应的属性名，join连接不会保存属性值信息，也就无法映射，在前端就收不到这个空属性名的属性值。
+
+​	可以改用left join 连接
+
+JOIN（内连接）
+
++ **基本概念**：`JOIN`（或称为内连接）会返回两个或多个表中匹配的行。如果在一个表中有行与另一个表中的行基于连接条件匹配，那么这些行会被包括在结果集中。如果某行在一个表中没有匹配的行，那么该行就不会出现在结果集中。
++ **用途**：当你只想要那些在两个或多个表中都有匹配的行时，使用 `JOIN`。
+
+ LEFT JOIN（左连接）
+
++ **基本概念**：`LEFT JOIN`（或称为左外连接）会返回左表（`LEFT JOIN` 语句中指定的第一个表）的所有行，即使右表中没有匹配的行。如果右表中没有匹配的行，则结果中这些行的右表部分将包含 NULL。
++ **用途**：当你想要从左表中选择所有的行，并且仅当它们在右表中也有匹配时，才选择右表中的行，这时可以使用 `LEFT JOIN`。这常用于想要保留左表中的所有记录，同时获取与右表匹配的信息（如果有的话）的场景。
