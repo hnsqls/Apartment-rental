@@ -1089,4 +1089,251 @@ where k.is_deleted = 0
 
    
 
-   
+###  公寓管理
+
+表结构
+
+![image-20240714145551065](images/README.assets/image-20240714145551065.png)
+前端传参
+
+  ![image-20240714150348784](images/README.assets/image-20240714150348784.png)
+
+前端传来的json,其中经度纬度,是调用高德地图的接口,通过详细地址获得.
+
+后端接收json的类
+
+```java
+@Schema(description = "公寓信息")
+@Data
+public class ApartmentSubmitVo extends ApartmentInfo {
+
+    @Schema(description="公寓配套id")
+    private List<Long> facilityInfoIds;
+
+    @Schema(description="公寓标签id")
+    private List<Long> labelIds;
+
+    @Schema(description="公寓杂费值id")
+    private List<Long> feeValueIds;
+
+    @Schema(description="公寓图片id")
+    private List<GraphVo> graphVoList;
+
+}
+@Schema(description = "公寓信息表")
+@TableName(value = "apartment_info")
+@Data
+public class ApartmentInfo extends BaseEntity {
+
+    private static final long serialVersionUID = 1L;
+
+    @Schema(description = "公寓名称")
+    @TableField(value = "name")
+    private String name;
+
+    @Schema(description = "公寓介绍")
+    @TableField(value = "introduction")
+    private String introduction;
+
+    @Schema(description = "所处区域id")
+    @TableField(value = "district_id")
+    private Long districtId;
+
+    @Schema(description = "所处区域名称")
+    @TableField(value = "district_name")
+    private String districtName;
+
+    @Schema(description = "所处城市id")
+    @TableField(value = "city_id")
+    private Long cityId;
+
+    @Schema(description = "所处城市名称")
+    @TableField(value = "city_name")
+    private String cityName;
+
+    @Schema(description = "所处省份id")
+    @TableField(value = "province_id")
+    private Long provinceId;
+
+    @Schema(description = "所处区域名称")
+    @TableField(value = "province_name")
+    private String provinceName;
+
+    @Schema(description = "详细地址")
+    @TableField(value = "address_detail")
+    private String addressDetail;
+
+    @Schema(description = "经度")
+    @TableField(value = "latitude")
+    private String latitude;
+
+    @Schema(description = "纬度")
+    @TableField(value = "longitude")
+    private String longitude;
+
+    @Schema(description = "公寓前台电话")
+    @TableField(value = "phone")
+    private String phone;
+
+    @Schema(description = "是否发布")
+    @TableField(value = "is_release")
+    private ReleaseStatus isRelease;
+
+}
+```
+
+
+
+#### 1. 保存或更新公寓信息
+
+逻辑,前端通过http请求发送带有公寓信息的json串,后端定义一个符合前端请求json格式的接收类.接收前端传来的参数.这里并不能直接调用mybatisplus的方法,因为没有这个定义vo交给mybatis-plus.也不能直接调用`ApartmentInfoService`因为vo所附加的信息不能够操作.
+
+
+
+更新操作总体思路如下
+
+![image-20240714152853818](images/README.assets/image-20240714152853818.png)
+
+![image-20240714152904618](images/README.assets/image-20240714152904618.png)
+
+修改公寓信息,删除里面的一个图片,怎么操作?,json串的是剩余的数据,而不是要改变的数据,那么怎么删除公寓里面那张图片呢?
+
+答:可以先删除公寓里面图片的信息,然后在保存json串的信息就可以完成修改.
+
+同样适用于修改公寓信息里面的公寓配套,公寓标签,公寓杂费.
+
+![image-20240714153241758](images/README.assets/image-20240714153241758.png)
+
+这里我们要先理清楚逻辑,**如果前端传来了id就是更新操作**.**如果没传**id**就是保存操作**.
+
+* 更新操作逻辑:  先删除在保存
+  * 更新ApartmentInfo信息,可以用mp对应的service方法save
+  * 对于其他字段需要我们自己写更新逻辑 (facilityInfoIds,labelIds,feeValueIds,graphVoList)
+    * 更新公寓配套 `facilityInfoIds`
+      * 先删除公寓id所对应的配套信息id
+      * 在保存前端传来了配套信息id
+    * 更新公寓标签 `labelIds`
+      * 先删除公寓id对应的配套信息id
+      * 在保存
+    * 等等
+  * 可以先删除需要更新的，在调用sava方法保存。
+
+```java
+@Service
+public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, ApartmentInfo>
+        implements ApartmentInfoService {
+
+    @Autowired
+    private ApartmentFacilityService apartmentFacilityService;
+    @Autowired
+    private ApartmentLabelService apartmentLabelService;
+    @Autowired
+    private ApartmentFeeValueService apartmentFeeValueService;
+    @Autowired
+    private GraphInfoService graphInfoService;
+
+    @Override
+    public void saveOrUpdateapart(ApartmentSubmitVo apartmentSubmitVo) {
+        //调用父方法保存apartment基本信息
+        super.saveOrUpdate(apartmentSubmitVo);
+        //手动处理其他信息即Vo新增的信息facilityInfoIds,labelIds,feeValueIds,graphVoList
+        //保存操作直接保存，更新操作，所以先删除公寓所对应的信息，在保存参数的信息。
+        Boolean is_update = apartmentSubmitVo.getId() != null;
+        if(is_update){
+            //删除 对应的信息
+            //删除修改公寓所公寓配套信息
+            LambdaQueryWrapper<ApartmentFacility> apartmentFacilityLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            LambdaQueryWrapper<ApartmentFacility> eq = apartmentFacilityLambdaQueryWrapper.eq(ApartmentFacility::getApartmentId, apartmentSubmitVo.getId());
+            apartmentFacilityService.remove(eq);
+            //删除 修改公寓所对应公寓标签信息
+            LambdaQueryWrapper<ApartmentLabel> apartmentLabelLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            apartmentLabelLambdaQueryWrapper.eq(ApartmentLabel::getApartmentId,apartmentSubmitVo.getId());
+            apartmentLabelService.remove(apartmentLabelLambdaQueryWrapper);
+            //删除公寓杂费信息
+            LambdaQueryWrapper<ApartmentFeeValue> apartmentFeeValueLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            apartmentFeeValueLambdaQueryWrapper.eq(ApartmentFeeValue::getApartmentId,apartmentSubmitVo.getId());
+            apartmentFeeValueService.remove(apartmentFeeValueLambdaQueryWrapper);
+
+            //删除图片信息
+            LambdaQueryWrapper<GraphInfo> graphInfoLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            graphInfoLambdaQueryWrapper.eq(GraphInfo::getItemId,apartmentSubmitVo.getId())
+                    .eq(GraphInfo::getItemType, ItemType.APARTMENT);
+            graphInfoService.remove(graphInfoLambdaQueryWrapper);
+        }
+        //无论是保存还是更细操作，都要保存
+
+        /**
+         * 保存公寓配套信息
+         */
+        List<Long> facilityInfoIds = apartmentSubmitVo.getFacilityInfoIds();
+        if (!CollectionUtils.isEmpty(facilityInfoIds)){
+            //savabatch要求ApartmentFacility 泛型参数  Long -》ApartmentFacility
+            ArrayList<ApartmentFacility> facilityArrayList = new ArrayList<>();
+            for (Long facilityInfoId : facilityInfoIds) {
+                ApartmentFacility apartmentFacility = new ApartmentFacility();
+                apartmentFacility.setApartmentId(apartmentSubmitVo.getId());
+                apartmentFacility.setFacilityId(facilityInfoId);
+                facilityArrayList.add(apartmentFacility);
+            }
+            apartmentFacilityService.saveBatch(facilityArrayList);
+        }
+
+
+        /**
+         * 保存图片信息
+         */
+        List<GraphVo> graphVoList = apartmentSubmitVo.getGraphVoList();
+            // graphInfoService.saveBatch(); 要求参数的集合泛型是<GraphInfo>,但是图片的信息是GraphVo
+            //类型转换为info
+        if(!CollectionUtils.isEmpty(graphVoList)){
+            ArrayList<GraphInfo> graphInfos = new ArrayList<>();
+            for (GraphVo graphVo : graphVoList) {
+                GraphInfo graphInfo = new GraphInfo();
+                graphInfo.setItemType(ItemType.APARTMENT);
+                graphInfo.setItemId(apartmentSubmitVo.getId());
+                graphInfo.setUrl(graphVo.getUrl());
+                graphInfo.setName(graphVo.getName());
+                graphInfos.add(graphInfo);
+            }
+            graphInfoService.saveBatch(graphInfos);
+        }
+
+        /**
+         * 保存标签信息
+         */
+        List<Long> labelIds = apartmentSubmitVo.getLabelIds();
+        if (!CollectionUtils.isEmpty(labelIds)){
+            ArrayList<ApartmentLabel> labelArrayList = new ArrayList<>();
+            for (Long labelId : labelIds) {
+                ApartmentLabel apartmentLabel = new ApartmentLabel();
+                apartmentLabel.setApartmentId(apartmentSubmitVo.getId());
+                apartmentLabel.setLabelId(labelId);
+                labelArrayList.add(apartmentLabel);
+            }
+            apartmentLabelService.saveBatch(labelArrayList);
+
+        }
+        /**
+         * 保存公寓杂费
+         */
+        List<Long> feeValueIds = apartmentSubmitVo.getFeeValueIds();
+        if (!CollectionUtils.isEmpty(feeValueIds)){
+            ArrayList<ApartmentFeeValue> feeValueList = new ArrayList<>();
+            for (Long feeValueId : feeValueIds) {
+                ApartmentFeeValue apartmentFeeValue = new ApartmentFeeValue();
+                apartmentFeeValue.setApartmentId(apartmentSubmitVo.getId());
+                apartmentFeeValue.setFeeValueId(feeValueId);
+                feeValueList.add(apartmentFeeValue);
+            }
+            apartmentFeeValueService.saveBatch(feeValueList);
+        }
+    }
+}
+```
+
+* 为什么引入service，而不引入mapper，因为service层的保存方法，可以保存list，mapper则不行
+* savabatch（）的参数要求是被调用的类型的泛型的集合。不符合要自己构造。在传参.
+
+​	
+
+#### 2. 根据条件，分页查询公寓列表
