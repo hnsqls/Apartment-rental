@@ -2,6 +2,9 @@ package com.ls.lease.web.admin.mapper;
 
 import com.ls.lease.model.entity.ApartmentFacility;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.ls.lease.model.entity.FacilityInfo;
+
+import java.util.List;
 
 /**
 * @author liubo
@@ -11,6 +14,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 */
 public interface ApartmentFacilityMapper extends BaseMapper<ApartmentFacility> {
 
+    List<FacilityInfo> selectListById(Long id);
 }
 
 

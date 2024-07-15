@@ -79,4 +79,7 @@
 
 
     </select>
+    <select id="getDetailById" resultType="com.ls.lease.web.admin.vo.apartment.ApartmentDetailVo">
+
+    </select>
 </mapper>

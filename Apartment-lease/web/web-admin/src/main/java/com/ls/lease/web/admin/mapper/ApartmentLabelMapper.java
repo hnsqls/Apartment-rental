@@ -2,6 +2,9 @@ package com.ls.lease.web.admin.mapper;
 
 import com.ls.lease.model.entity.ApartmentLabel;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.ls.lease.model.entity.LabelInfo;
+
+import java.util.List;
 
 /**
 * @author liubo
@@ -10,6 +13,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.atguigu.lease.model.ApartmentLabel
 */
 public interface ApartmentLabelMapper extends BaseMapper<ApartmentLabel> {
+
 
 }
 

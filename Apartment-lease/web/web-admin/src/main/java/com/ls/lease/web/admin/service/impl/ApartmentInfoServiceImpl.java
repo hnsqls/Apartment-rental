@@ -5,14 +5,17 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.model.entity.*;
 import com.ls.lease.model.enums.ItemType;
-import com.ls.lease.web.admin.mapper.ApartmentInfoMapper;
+import com.ls.lease.web.admin.mapper.*;
 import com.ls.lease.web.admin.service.*;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ls.lease.web.admin.vo.apartment.ApartmentDetailVo;
 import com.ls.lease.web.admin.vo.apartment.ApartmentItemVo;
 import com.ls.lease.web.admin.vo.apartment.ApartmentQueryVo;
 import com.ls.lease.web.admin.vo.apartment.ApartmentSubmitVo;
+import com.ls.lease.web.admin.vo.fee.FeeValueVo;
 import com.ls.lease.web.admin.vo.graph.GraphVo;
 import org.checkerframework.checker.units.qual.A;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -41,6 +44,21 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
     @Autowired
     private ApartmentInfoMapper mapper;
 
+    @Autowired
+    private GraphInfoMapper graphInfoMapper;
+    @Autowired
+    private LabelInfoMapper labelInfoMapper;
+
+    @Autowired
+    private ApartmentFacilityMapper facilityMapper;
+
+    @Autowired
+    private  FeeValueMapper feeValueMapper;
+
+    /**
+     * 保存或更新公寓信息
+     * @param apartmentSubmitVo
+     */
     @Override
     public void saveOrUpdateapart(ApartmentSubmitVo apartmentSubmitVo) {
         //手动处理其他信息即Vo新增的信息facilityInfoIds,labelIds,feeValueIds,graphVoList
@@ -141,7 +159,7 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
     }
 
     /**
-     * 分页查询
+     * 根据条件分页查询
      * @param apartmentItemVoPage
      * @param queryVo
      * @return
@@ -150,6 +168,51 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
     public IPage<ApartmentItemVo> pageItem(Page<ApartmentItemVo> apartmentItemVoPage, ApartmentQueryVo queryVo) {
 
         return  mapper.pageItem(apartmentItemVoPage,queryVo);
+    }
+
+    /**
+     * 根据id查询公寓详细信息
+     * @param id
+     * @return ApartmentDetailVo
+     */
+    @Override
+    public ApartmentDetailVo getDetailById(Long id) {
+        //查询公寓信息
+        ApartmentInfo apartmentInfo = this.getById(id);
+        if (apartmentInfo == null){
+            return null;
+        }
+
+        //查询图片列表
+            //查公寓id和公寓类型的图片
+        List<GraphVo> graphVoList = graphInfoMapper.selectListByItemAndId(ItemType.APARTMENT,id);
+
+        //查询标签列表
+            //查询公寓id对应的标签列表 得到标签id列表，在根据得到的标签列表id，查标签信息
+        List<LabelInfo>  labelInfoList= labelInfoMapper.selectListById(id);
+
+        //查询配套列表
+            //根据公寓id查到配套id集合，根基配套id集合，查到配套的名字
+        List<FacilityInfo> facilityInfoList = facilityMapper.selectListById(id);
+
+        //查询杂费列表
+        List<FeeValueVo> feeValueVoList = feeValueMapper.selectListById(id);
+
+
+        //组装结果
+            //可以创建一个要求返回的对象，然后每个属性set。但是麻烦
+            //spring 提供了工具类 BeanUtils import org.springframework.beans.BeanUtils;
+        ApartmentDetailVo apartmentDetailVo = new ApartmentDetailVo();
+        //第一个是原对象，第二个参数是目标对象，只要属性名一样就可以转换
+        BeanUtils.copyProperties(apartmentInfo,apartmentDetailVo);
+        apartmentDetailVo.setGraphVoList(graphVoList);
+        apartmentDetailVo.setFacilityInfoList(facilityInfoList);
+        apartmentDetailVo.setFeeValueVoList(feeValueVoList);
+        apartmentDetailVo.setLabelInfoList(labelInfoList);
+
+        return apartmentDetailVo;
+
+//        return  mapper.getDetailById();
     }
 
 }
