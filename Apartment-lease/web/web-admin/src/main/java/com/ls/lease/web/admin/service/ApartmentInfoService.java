@@ -1,7 +1,6 @@
 package com.ls.lease.web.admin.service;
 
 import com.ls.lease.model.entity.ApartmentInfo;
-import com.ls.lease.web.admin.vo.apartment.ApartmentDetailVo;
 import com.ls.lease.web.admin.vo.apartment.ApartmentItemVo;
 import com.ls.lease.web.admin.vo.apartment.ApartmentQueryVo;
 import com.ls.lease.web.admin.vo.apartment.ApartmentSubmitVo;
@@ -18,4 +17,6 @@ public interface ApartmentInfoService extends IService<ApartmentInfo> {
 
 
     void saveOrUpdateapart(ApartmentSubmitVo apartmentSubmitVo);
+
+    IPage<ApartmentItemVo> pageItem(Page<ApartmentItemVo> apartmentItemVoPage, ApartmentQueryVo queryVo);
 }

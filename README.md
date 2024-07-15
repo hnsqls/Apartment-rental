@@ -1336,4 +1336,157 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
 
 ​	
 
-#### 2. 根据条件，分页查询公寓列表
+#### 2. 根据条件，分页查询公寓列表(复杂sql值得学习)
+
+![image-20240715133826891](images/README.assets/image-20240715133826891.png)
+
+前端传参查询 当前页数，和页数大小，还有查询条件。
+
+后端接收前端的参数，当前页数和大小直接使用注解@RequestParam接收参数，查询条件，可以封装成一个类去接收命名为queryvo，
+
+这里由于是get请求，所以没有请求体，即不能使用@RequetBody接收，而是直接根据前端传参的name和实体的属性一致接收。
+
+后端返回给前端页面上展示的所有内容。
+
+由于没有一个类可以完整的显示上面的内容，我们自定义Vo类可以继承基本类，在添加上没有的字段即可。
+
+由于是分页操作，我们可以自己写limit，但是麻烦，可以利用mp的分页插件
+
+* 分页插件配置
+
+  * 在mp的配置类添加分页插件
+
+  ```java
+   @Bean
+      public MybatisPlusInterceptor mybatisPlusInterceptor() {
+          MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+          interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+          return interceptor;
+      }
+  ```
+
+* 分页插件的使用，看mp教程
+
+编写Controller层
+
+```java
+@Operation(summary = "根据条件分页查询公寓列表")
+    @GetMapping("pageItem")
+    public Result<IPage<ApartmentItemVo>> pageItem(@RequestParam long current, @RequestParam long size, ApartmentQueryVo queryVo) {
+        Page<ApartmentItemVo> apartmentItemVoPage = new Page<>(current, size);
+        IPage<ApartmentItemVo> result = apartmentInfoService.pageItem(apartmentItemVoPage,queryVo);
+        return Result.ok(result);
+    }
+```
+
+编写service层
+
+编写接口，编写实现类
+
+```java
+IPage<ApartmentItemVo> pageItem(Page<ApartmentItemVo> apartmentItemVoPage, ApartmentQueryVo queryVo);
+
+@Override
+    public IPage<ApartmentItemVo> pageItem(Page<ApartmentItemVo> apartmentItemVoPage, ApartmentQueryVo queryVo) {
+
+        return  mapper.pageItem(apartmentItemVoPage,queryVo);
+    }
+```
+
+mapper层，创建接口，自定义sql
+
+（根据 省id, 市id ,区id）动态查询，公寓列表，查询到除了房间总数和空闲房间数的其他字段
+
+房间总数，可以根据公寓id查询roominfo表，过滤条件是逻辑删除和房间是否发布，查询的结果分为一组，计算数量
+
+剩余房间数，可以根据房间的签约状态，筛选除已经签约的房间，并分为一组，计算数量，总数-该数就是剩余房间数。
+
+将上述三个查询，看成子sql，左连接查询结果
+
+* 左连接会导致左表匹配右表，右表没有值的话，会置为null，在计算房间剩余数的时候的计算可能会出问题，比如总数是10，签约房间（0）做左连接查询因为查询的公寓没有已经签约的房间会即已经签约数为0，都是空房间，左连接会null填充，导致10-null。正数和null的运算都是null。就会导致结果错误，所以要特判一下左连接查询的时候数量为null就是0.sql如下
+
+```xml
+<select id="pageItem" resultType="com.ls.lease.web.admin.vo.apartment.ApartmentItemVo">
+
+    select
+        ai.id,
+        ai.name,
+        ai.introduction,
+        ai.district_id,
+        ai.district_name,
+        ai.city_id,
+        ai.city_name,
+        ai.province_id,
+        ai.province_name,
+        ai.address_detail,
+        ai.latitude,
+        ai.longitude,
+        ai.phone,
+        ai.is_release,
+        ifnull(tc.cnt,0) total_room_count,
+        ifnull(tc.cnt,0) - ifnull(cc.cnt,0) free_room_count
+        from
+        (select id,
+                name,
+                introduction,
+                district_id,
+                district_name,
+                city_id,
+                city_name,
+                province_id,
+                province_name,
+                address_detail,
+                latitude,
+                longitude,
+                phone,
+                is_release
+         from apartment_info
+        <where>
+            is_deleted=0
+            <if test="queryVo.provinceId != null">
+                and province_id=#{queryVo.provinceId}
+            </if>
+            <if test="queryVo.cityId != null">
+                and city_id=#{queryVo.cityId}
+            </if>
+            <if test="queryVo.districtId != null">
+                and district_id=#{queryVo.districtId}
+            </if>
+        </where>
+        )
+        ai
+        left join
+
+        (select
+        apartment_id,
+        count(*) cnt
+        from room_info
+        where is_deleted = 0
+        and is_release = 1
+        group by apartment_id)
+        tc
+        on ai.id = tc.apartment_id
+        left join
+
+        (select
+        apartment_id,
+        count(*) cnt
+        from lease_agreement
+        where is_deleted = 0
+        and status in (2,5)
+        group by apartment_id)
+        cc
+        on ai.id=cc.apartment_id
+    </select>
+```
+
+需要补充的是，测试的时候,标红部分，只穿一个查询条件，其他的要删掉。不方便测试，可以添加如下配置
+
+![image-20240715141642476](images/README.assets/image-20240715141642476.png)
+
+```yaml
+springdoc:
+  default-flat-param-object: true
+```
+
+![image-20240715141812427](images/README.assets/image-20240715141812427.png)

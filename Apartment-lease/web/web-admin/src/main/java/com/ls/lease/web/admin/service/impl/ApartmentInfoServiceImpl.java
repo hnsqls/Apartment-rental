@@ -1,11 +1,15 @@
 package com.ls.lease.web.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.model.entity.*;
 import com.ls.lease.model.enums.ItemType;
 import com.ls.lease.web.admin.mapper.ApartmentInfoMapper;
 import com.ls.lease.web.admin.service.*;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ls.lease.web.admin.vo.apartment.ApartmentItemVo;
+import com.ls.lease.web.admin.vo.apartment.ApartmentQueryVo;
 import com.ls.lease.web.admin.vo.apartment.ApartmentSubmitVo;
 import com.ls.lease.web.admin.vo.graph.GraphVo;
 import org.checkerframework.checker.units.qual.A;
@@ -34,13 +38,16 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
     @Autowired
     private GraphInfoService graphInfoService;
 
+    @Autowired
+    private ApartmentInfoMapper mapper;
+
     @Override
     public void saveOrUpdateapart(ApartmentSubmitVo apartmentSubmitVo) {
-        //调用父方法保存apartment基本信息
-        super.saveOrUpdate(apartmentSubmitVo);
         //手动处理其他信息即Vo新增的信息facilityInfoIds,labelIds,feeValueIds,graphVoList
         //保存操作直接保存，更新操作，所以先删除公寓所对应的信息，在保存参数的信息。
         Boolean is_update = apartmentSubmitVo.getId() != null;
+        //调用父方法保存apartment基本信息
+        super.saveOrUpdate(apartmentSubmitVo);
         if(is_update){
             //删除 对应的信息
             //删除修改公寓所公寓配套信息
@@ -131,6 +138,18 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
         }
 
 
+    }
+
+    /**
+     * 分页查询
+     * @param apartmentItemVoPage
+     * @param queryVo
+     * @return
+     */
+    @Override
+    public IPage<ApartmentItemVo> pageItem(Page<ApartmentItemVo> apartmentItemVoPage, ApartmentQueryVo queryVo) {
+
+        return  mapper.pageItem(apartmentItemVoPage,queryVo);
     }
 
 }
