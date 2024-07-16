@@ -1653,3 +1653,9 @@ public class LeaseException extends RuntimeException{
 
 
 
+#### 5.根据公寓id修改公寓状态
+
+* 注意状态是枚举类型
+  * 前端向后端发请求，请求参数类型都是String类型，不过由于springmvc中的webDatabinder，加上@RequestParam,可以将类型自动转化为后端接收的类型。不过对于枚举类型而说，WebDatabindhandler自动转化类型的原则是，前端传来的内容和，枚举实列的name相互映射。不过一般都是前后端规定数字表示状态，所以要自定义转换类型。前面业务已经定义了自定义转换类工厂规则。实现ConversetFact 重现converter方法。
+  * 服务器向数据库操作，mybatis也提供了Java中实体对象和数据库之间数据类型自动转换，TypeHandler。比如Interger类到int,也提供了枚举类行的转换。不过默认是根据服务器传来的内容，匹配数据库枚举实例的名字，来匹配枚举类型。我们也要自定义枚举类型的转换规则，不过mp提供了注解@EnumValue。
+

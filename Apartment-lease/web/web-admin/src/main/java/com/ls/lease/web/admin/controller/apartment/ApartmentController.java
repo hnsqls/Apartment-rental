@@ -1,6 +1,7 @@
 package com.ls.lease.web.admin.controller.apartment;
 
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.common.result.Result;
 import com.ls.lease.model.entity.ApartmentInfo;
@@ -59,6 +60,10 @@ public class ApartmentController {
     @Operation(summary = "根据id修改公寓发布状态")
     @PostMapping("updateReleaseStatusById")
     public Result updateReleaseStatusById(@RequestParam Long id, @RequestParam ReleaseStatus status) {
+        LambdaUpdateWrapper<ApartmentInfo> apartmentInfoUpdateWrapper = new LambdaUpdateWrapper<>();
+        apartmentInfoUpdateWrapper.eq(ApartmentInfo::getId,id)
+                        .set(ApartmentInfo::getIsRelease,status);
+        apartmentInfoService.update(apartmentInfoUpdateWrapper);
         return Result.ok();
     }
 
