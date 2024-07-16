@@ -405,7 +405,7 @@ CREATE DATABASE lease CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 
 
 
-# 公寓信息管理接口开发
+## 公寓信息管理接口开发
 
 ### 房间支付方式接口开发
 
@@ -1658,4 +1658,34 @@ public class LeaseException extends RuntimeException{
 * 注意状态是枚举类型
   * 前端向后端发请求，请求参数类型都是String类型，不过由于springmvc中的webDatabinder，加上@RequestParam,可以将类型自动转化为后端接收的类型。不过对于枚举类型而说，WebDatabindhandler自动转化类型的原则是，前端传来的内容和，枚举实列的name相互映射。不过一般都是前后端规定数字表示状态，所以要自定义转换类型。前面业务已经定义了自定义转换类工厂规则。实现ConversetFact 重现converter方法。
   * 服务器向数据库操作，mybatis也提供了Java中实体对象和数据库之间数据类型自动转换，TypeHandler。比如Interger类到int,也提供了枚举类行的转换。不过默认是根据服务器传来的内容，匹配数据库枚举实例的名字，来匹配枚举类型。我们也要自定义枚举类型的转换规则，不过mp提供了注解@EnumValue。
+
+#### 6. 根据区县id查询公寓列表
+
+### 房间管理（未实现）
+
+
+
+## 租赁管理
+
+### 看房预约管理
+
+![image-20240716140345675](images/README.assets/image-20240716140345675.png)
+
+ #### 根据id修改预约状态
+
+```java
+    @Operation(summary = "根据id更新预约状态")
+    @PostMapping("updateStatusById")
+    public Result updateStatusById(@RequestParam Long id, @RequestParam AppointmentStatus status) {
+        LambdaUpdateWrapper<ViewAppointment> viewAppointmentUpdateWrapper = new LambdaUpdateWrapper<>();
+        viewAppointmentUpdateWrapper.eq(ViewAppointment::getId,id)
+                .set(ViewAppointment::getAppointmentStatus,status);
+        viewAppointmentService.update(viewAppointmentUpdateWrapper);
+        return Result.ok();
+    }
+```
+
+
+
+#### 
 

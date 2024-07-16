@@ -22,10 +22,7 @@ public class RoomController {
 
     @Operation(summary = "保存或更新房间信息")
     @PostMapping("saveOrUpdate")
-    public Result saveOrUpdate(@RequestBody RoomSubmitVo roomSubmitVo) {
-        return Result.ok();
-    }
-
+    public Result saveOrUpdate(@RequestBody RoomSubmitVo roomSubmitVo) {return Result.ok();}
     @Operation(summary = "根据条件分页查询房间列表")
     @GetMapping("pageItem")
     public Result<IPage<RoomItemVo>> pageItem(@RequestParam long current, @RequestParam long size, RoomQueryVo queryVo) {
