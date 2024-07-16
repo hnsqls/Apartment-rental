@@ -18,4 +18,6 @@ public interface LeaseAgreementService extends IService<LeaseAgreement> {
 
 
     IPage<AgreementVo> pageAgreementVo(Page<AgreementVo> page, AgreementQueryVo queryVo);
+
+    AgreementVo getAgreementVoById(Long id);
 }
