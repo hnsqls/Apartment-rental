@@ -1876,3 +1876,283 @@ timedatectl
 ![image-20240716173114175](images/README.assets/image-20240716173114175.png)
 
 +800 就是东八区 
+
+
+
+### 租约管理
+
+#### 保存或更新租约信息
+
+ 查看请求数据结构，查看响应数据结构 都是在一张表里面。直接调用通用service即可
+
+#### 根据条件分页查询租约列表
+
+* 查看请求和响应数据结构
+
+  * 请求数据结构
+
+    * `current`和`size`为分页相关参数，分别表示**当前所处页面**和**每个页面的记录数**。
+
+    * `AgreementQueryVo`为公寓的查询条件，详细结构如下：
+
+    * ```java
+      @Data
+      @Schema(description = "租约查询实体")
+      public class AgreementQueryVo {
+      
+          @Schema(description = "公寓所处省份id")
+          private Long provinceId;
+      
+          @Schema(description = "公寓所处城市id")
+          private Long cityId;
+      
+          @Schema(description = "公寓所处区域id")
+          private Long districtId;
+      
+          @Schema(description = "公寓id")
+          private Long apartmentId;
+      
+          @Schema(description = "房间号")
+          private String roomNumber;
+      
+          @Schema(description = "用户姓名")
+          private String name;
+      
+          @Schema(description = "用户手机号码")
+          private String phone;
+      }
+      ```
+
+  * 响应数据结构
+
+    * ```java
+      @Data
+      @Schema(description = "租约信息")
+      public class AgreementVo extends LeaseAgreement {
+      
+          @Schema(description = "签约公寓信息")
+          private ApartmentInfo apartmentInfo;
+      
+          @Schema(description = "签约房间信息")
+          private RoomInfo roomInfo;
+      
+          @Schema(description = "支付方式")
+          private PaymentType paymentType;
+      
+          @Schema(description = "租期")
+          private LeaseTerm leaseTerm;
+      }
+      ```
+
+    * ```java
+      @Schema(description = "租约信息表")
+      @TableName(value = "lease_agreement")
+      @Data
+      public class LeaseAgreement extends BaseEntity {
+      
+          private static final long serialVersionUID = 1L;
+      
+          @Schema(description = "承租人手机号码")
+          @TableField(value = "phone")
+          private String phone;
+      
+          @Schema(description = "承租人姓名")
+          @TableField(value = "name")
+          private String name;
+      
+          @Schema(description = "承租人身份证号码")
+          @TableField(value = "identification_number")
+          private String identificationNumber;
+      
+          @Schema(description = "签约公寓id")
+          @TableField(value = "apartment_id")
+          private Long apartmentId;
+      
+          @Schema(description = "签约房间id")
+          @TableField(value = "room_id")
+          private Long roomId;
+      
+          @Schema(description = "租约开始日期")
+          @JsonFormat(pattern = "yyyy-MM-dd")
+          @TableField(value = "lease_start_date")
+          private Date leaseStartDate;
+      
+          @Schema(description = "租约结束日期")
+          @TableField(value = "lease_end_date")
+          @JsonFormat(pattern = "yyyy-MM-dd")
+          private Date leaseEndDate;
+      
+          @Schema(description = "租期id")
+          @TableField(value = "lease_term_id")
+          private Long leaseTermId;
+      
+          @Schema(description = "租金（元/月）")
+          @TableField(value = "rent")
+          private BigDecimal rent;
+      
+          @Schema(description = "押金（元）")
+          @TableField(value = "deposit")
+          private BigDecimal deposit;
+      
+          @Schema(description = "支付类型id")
+          @TableField(value = "payment_type_id")
+          private Long paymentTypeId;
+      
+          @Schema(description = "租约状态")
+          @TableField(value = "status")
+          private LeaseStatus status;
+      
+          @Schema(description = "租约来源")
+          @TableField(value = "source_type")
+          private LeaseSourceType sourceType;
+      
+          @Schema(description = "备注信息")
+          @TableField(value = "additional_info")
+          private String additionalInfo;
+      
+      }
+      ```
+
+  * 联表查询，主表即leaseagrement表，没有省市区id，根据条件查询需要省市区，所以连接apartment_info表，这次连接满足了条件查询需要的内容，同时满足了响应的数据结构需要的内容。
+
+    然后连接room_info表获得签约房间信息，然后连接支付方式表，获得支付方式信息，然后连接租期表。
+
+
+
+controller
+
+```java
+  @Operation(summary = "根据条件分页查询租约列表")
+    @GetMapping("page")
+    public Result<IPage<AgreementVo>> page(@RequestParam long current, @RequestParam long size, AgreementQueryVo queryVo) {
+        Page<AgreementVo> page = new Page<>(current, size);
+        IPage<AgreementVo> result = leaseAgreementService.pageAgreementVo(page,queryVo);
+        return Result.ok(result);
+    }
+```
+
+service
+
+```java
+public interface LeaseAgreementService extends IService<LeaseAgreement> {
+
+    IPage<AgreementVo> pageAgreementVo(Page<AgreementVo> page, AgreementQueryVo queryVo);
+}
+
+```
+
+mapper
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ls.lease.web.admin.mapper.LeaseAgreementMapper">
+       <resultMap id="pageAgreementVoMap" type="com.ls.lease.web.admin.vo.agreement.AgreementVo" autoMapping="true">
+              <id property="id" column="id"/>
+
+              <association property="apartmentInfo" javaType="com.ls.lease.model.entity.ApartmentInfo" autoMapping="true">
+                     <id property="id" column="aiId"/>
+                     <result property="name" column="aiName"/>
+                     <result property="phone" column="aiPhone"/>
+              </association>
+              <association property="roomInfo" javaType="com.ls.lease.model.entity.RoomInfo" autoMapping="true">
+                     <id property="id" column="riId"/>
+                     <result property="apartmentId" column="riApartmentId"/>
+                     <result property="isRelease" column="riIsRelease"/>
+              </association>
+              <association property="paymentType" javaType="com.ls.lease.model.entity.PaymentType" autoMapping="true">
+                     <id property="id" column="ptId"/>
+                     <result property="name" column="PtName"/>
+              </association>
+
+              <association property="leaseTerm" javaType="com.ls.lease.model.entity.LeaseTerm" autoMapping="true">
+                     <id property="id" column="ltId"/>
+              </association>
+       </resultMap>
+
+    <select id="pageAgreementVo" resultMap="pageAgreementVoMap">
+        select la.id,
+               la.phone,
+               la.name,
+               la.identification_number,
+               la.apartment_id,
+               la.room_id,
+               la.lease_start_date,
+               la.lease_end_date,
+               la.lease_term_id,
+               la.rent,
+               la.deposit,
+               la.payment_type_id,
+               la.status,
+               la.source_type,
+               la.additional_info,
+               ai.id ai_id,
+               ai.name ai_name,
+               ai.introduction,
+               ai.district_id,
+               ai.district_name,
+               ai.city_id,
+               ai.city_name,
+               ai.province_id,
+               ai.province_name,
+               ai.address_detail,
+               ai.latitude,
+               ai.longitude,
+               ai.phone ai_phone,
+               ai.is_release,
+               ri.id ri_id,
+               ri.room_number,
+               ri.rent,
+               ri.apartment_id ri_apartment_id,
+               ri.is_release ri_is_release,
+               pt.id pt_id,
+               pt.name pt_name,
+               pt.pay_month_count,
+               pt.additional_info,
+               lt.id lt_id,
+               lt.month_count,
+               lt.unit
+        from lease_agreement la
+                 left join apartment_info ai
+                           on la.apartment_id = ai.id and ai.is_deleted = 0
+                 left join room_info ri
+                           on la.room_id = ri.id and ri.is_deleted = 0
+                 left join payment_type pt
+                           on la.payment_type_id = pt.id and pt.is_deleted = 0
+                 left join lease_term lt
+                           on la.lease_term_id = lt.id and lt.is_deleted = 0
+
+           <where>
+                  la.is_deleted=0
+                  <if test="queryVo.provinceId !=null">
+                       and  ai.province_id =#{queryVo.provinceId}
+                  </if>
+                  <if test="queryVo.cityId !=null">
+                        and ai.city_id =#{queryVo.cityId}
+                  </if>
+                  <if test="queryVo.districtId !=null">
+                        and ai.district_id =#{queryVo.districtId}
+                  </if>
+                  <if test="queryVo.apartmentId !=null">
+                        and  la.apartment_id =#{queryVo.apartmentId}
+                  </if>
+                  <if test="queryVo.roomNumber !=null and queryVo.roomNumber !=''">
+                        and ri.room_number like concat('%',#{queryVo.roomNumber},'%')
+                  </if>
+                  <if test="queryVo.name !=null and queryVo.name !=''">
+                        and la.name like concat('%',#{queryVo.name},'%')
+                  </if>
+                  <if test="queryVo.phone !=null and queryVo.phone != ''">
+                        and la.phone like concat('%',#{queryVo.phone},'%')
+                  </if>
+           </where>
+
+    </select>
+</mapper>
+
+```
+
+
+
