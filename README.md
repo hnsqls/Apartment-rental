@@ -1685,7 +1685,194 @@ public class LeaseException extends RuntimeException{
     }
 ```
 
+#### 根据条件分页查询看房预约信息
 
+**查看请求和响应的数据结构**
 
-#### 
+- **请求数据结构**
 
+  - `current`和`size`为分页相关参数，分别表示**当前所处页面**和**每个页面的记录数**。
+
+  - `AppointmentQueryVo`为看房预约的查询条件，详细结构如下：
+
+  - ```java
+    @Data
+    @Schema(description = "预约看房查询实体")
+    public class AppointmentQueryVo {
+    
+        @Schema(description="预约公寓所在省份")
+        private Long provinceId;
+    
+        @Schema(description="预约公寓所在城市")
+        private Long cityId;
+    
+        @Schema(description="预约公寓所在区")
+        private Long districtId;
+    
+        @Schema(description="预约公寓所在公寓")
+        private Long apartmentId;
+    
+        @Schema(description="预约用户姓名")
+        private String name;
+    
+        @Schema(description="预约用户手机号码")
+        private String phone;
+    }
+    ```
+
+- 响应数据结构
+
+  - ```java
+    @Data
+    @Schema(description = "预约看房信息")
+    public class AppointmentVo extends ViewAppointment {
+    
+        @Schema(description = "预约公寓信息")
+        private ApartmentInfo apartmentInfo;
+    }
+    ```
+
+编写逻辑，利用分页插件，进行分页，自定义方法根据条件分页查询，返回响应类型的数据结构。实现自定义方法。
+
+涉及两个表，一个ViewAppointment表，根据条件查询看房预约信息，根据看房预约的id再查询apartment_info表，再进行自定义映射要求的结果
+
+```xml
+<resultMap id="AppointmentVoMap" type="com.ls.lease.web.admin.vo.appointment.AppointmentVo" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="apartmentInfo" javaType="com.ls.lease.model.entity.ApartmentInfo" autoMapping="true">
+            <id property="id" column="ai_id"/>
+            <result property="name" column="ai_name"/>
+            <result property="phone" column="ai_phone"/>
+        </association>
+
+    </resultMap>
+    <select id="selectByQueeyVo" resultMap="AppointmentVoMap">
+        select va.id,
+               va.user_id,
+               va.name,
+               va.phone,
+               va.apartment_id,
+               va.appointment_time,
+               va.additional_info,
+               va.appointment_status,
+               ai.id ai_id,
+               ai.name ai_name,
+               ai.introduction,
+               ai.district_id,
+               ai.district_name,
+               ai.city_id,
+               ai.city_name,
+               ai.province_id,
+               ai.province_name,
+               ai.address_detail,
+               ai.latitude,
+               ai.longitude,
+               ai.phone ai_phone,
+               ai.is_release
+        from view_appointment va
+                 left join apartment_info ai
+                           on va.apartment_id = ai.id and ai.is_deleted = 0
+
+        <where>
+            va.is_deleted = 0
+            <if test="queryVo.provinceId != null">
+                and ai.province_id =#{queryVo.provinceId}
+            </if>
+            <if test="queryVo.cityId != null">
+                and ai.city_id = #{queryVo.cityId}
+            </if>
+            <if test="queryVo.districtId != null">
+                and ai.district_id = #{queryVo.districtId}
+            </if>
+            <if test="queryVo.apartmentId != null">
+                and ai.id =#{queryVo.apartmentId}
+            </if>
+            <if test="queryVo.name != null and queryVo.name != ''" >
+                and va.name like concat('%',#{queryVo.name},'%')
+            </if>
+            <if test="queryVo.phone != null and queryVo.phone != ''">
+                and va.phone like concat('%',#{queryVo.phone},'%')
+            </if>
+        </where>
+    </select>
+```
+
+* concat拼接字符串  like模糊查询。
+
+发现一个问题，在服务端响应请求端的时间格式不是我们想要的，这是前端在收到后端实体对象，json框架序列化的结果，怎么设置这个格式呢？
+
+![image-20240716164232416](images/README.assets/image-20240716164232416.png)
+
+**知识点**：
+
+`ViewAppointment`实体类中的`appointmentTime`字段为`Date`类型，`Date`类型的字段在序列化成JSON字符串时，需要考虑两个点，分别是**格式**和**时区**。本项目使用JSON序列化框架为Jackson，具体配置如下
+
+- **格式**
+
+  格式可按照字段单独配置，也可全局配置，下面分别介绍
+
+  - **单独配置**
+
+    在指定字段增加`@JsonFormat`注解，如下
+
+    ```java
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date appointmentTime;
+    ```
+
+  - **全局配置**
+
+    在`application.yml`中增加如下内容
+
+    ```yml
+    spring:
+      jackson:
+        date-format: yyyy-MM-dd HH:mm:ss
+    ```
+
+- **时区** 
+
+  时区要和
+
+  时区同样可按照字段单独配置，也可全局配置，下面分别介绍
+
+  - **单独配置**
+
+    在指定字段增加`@JsonFormat`注解，如下
+
+    ```java
+    @JsonFormat(timezone = "GMT+8")
+    private Date appointmentTime;
+    ```
+
+  - **全局配置**
+
+    ```yml
+    spring:
+      jackson:
+        time-zone: GMT+8
+    ```
+
+推荐格式按照字段单独配置，时区全局配置。
+
+时区要和数据库一致，那么怎么看数据库时区呢？
+
+进入mysql客户端
+
+```sql
+show variables like 'time_zone';
+```
+
+![image-20240716172928464](images/README.assets/image-20240716172928464.png)
+
+显示时区是和系统有关
+
+退出mysql客服端查看系统时区
+
+```shell
+timedatectl
+```
+
+![image-20240716173114175](images/README.assets/image-20240716173114175.png)
+
++800 就是东八区 

@@ -2,6 +2,7 @@ package com.ls.lease.web.admin.controller.lease;
 
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.common.result.Result;
 import com.ls.lease.model.entity.RoomInfo;
 import com.ls.lease.model.entity.ViewAppointment;
@@ -28,7 +29,10 @@ public class ViewAppointmentController {
     @Operation(summary = "分页查询预约信息")
     @GetMapping("page")
     public Result<IPage<AppointmentVo>> page(@RequestParam long current, @RequestParam long size, AppointmentQueryVo queryVo) {
-        return Result.ok();
+        Page<AppointmentVo> appointmentVoPage = new Page<>(current,size);
+        IPage<AppointmentVo> list = viewAppointmentService.selectByQueeyVo(appointmentVoPage,queryVo);
+
+        return Result.ok(list);
     }
 
     @Operation(summary = "根据id更新预约状态")
