@@ -3,6 +3,8 @@ package com.ls.lease.web.admin.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ls.lease.common.exception.LeaseException;
+import com.ls.lease.common.result.ResultCodeEnum;
 import com.ls.lease.model.entity.*;
 import com.ls.lease.model.enums.ItemType;
 import com.ls.lease.web.admin.mapper.*;
@@ -54,6 +56,9 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
 
     @Autowired
     private  FeeValueMapper feeValueMapper;
+
+    @Autowired
+    private  RoomInfoMapper roomInfoMapper;
 
     /**
      * 保存或更新公寓信息
@@ -213,6 +218,47 @@ public class ApartmentInfoServiceImpl extends ServiceImpl<ApartmentInfoMapper, A
         return apartmentDetailVo;
 
 //        return  mapper.getDetailById();
+    }
+
+
+    /**
+     * 根据id删除
+     * @param id
+     */
+    @Override
+    public void deleteApartmentByID(Long id) {
+        LambdaQueryWrapper<RoomInfo> roomInfoQueryWrapper = new LambdaQueryWrapper<>();
+        roomInfoQueryWrapper.eq(RoomInfo::getApartmentId,id);
+        Long count = roomInfoMapper.selectCount(roomInfoQueryWrapper);
+        if (count > 0){
+            //提示有房间不要删除。
+            throw  new LeaseException(ResultCodeEnum.DELETE_ERROR);
+        }
+        //删除基本信息
+        super.removeById(id);
+        //删除图片信息
+        LambdaQueryWrapper<GraphInfo> graphInfoQueryWrapper = new LambdaQueryWrapper<>();
+        graphInfoQueryWrapper.eq(GraphInfo::getItemType,ItemType.APARTMENT)
+                        .eq(GraphInfo::getItemId,id);
+        graphInfoService.remove(graphInfoQueryWrapper);
+
+        //删除配套信息
+        LambdaQueryWrapper<ApartmentFacility> facilityQueryWrapper = new LambdaQueryWrapper<>();
+        facilityQueryWrapper.eq(ApartmentFacility::getApartmentId,id);
+        apartmentFacilityService.remove(facilityQueryWrapper);
+
+        //删除标签信息
+
+        LambdaQueryWrapper<ApartmentLabel> labelQueryWrapper = new LambdaQueryWrapper<>();
+        labelQueryWrapper.eq(ApartmentLabel::getApartmentId,id);
+        apartmentLabelService.remove(labelQueryWrapper);
+
+        //删除杂费值信息
+
+        LambdaQueryWrapper<ApartmentFeeValue> feeValueQueryWrapper = new LambdaQueryWrapper<>();
+        feeValueQueryWrapper.eq(ApartmentFeeValue::getApartmentId,id);
+        apartmentFeeValueService.remove(feeValueQueryWrapper);
+
     }
 
 }

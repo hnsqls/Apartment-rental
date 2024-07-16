@@ -1531,3 +1531,125 @@ springdoc:
 再单独set额外信息。
 
 tips： 再编写imp时，引入mapper时，要考虑多变查询到底谁是主体，引入主体更方便操作。
+
+
+
+#### 4.根据ID删除公寓信息
+
+逻辑：删除公寓基本信息，同时删除图片，配套，标签，杂费。
+
+基本信息直接调用通用service删除就行。
+
+* 删除图片
+  * 根据公寓id和属性，操作图片信息表，删除图片信息。
+* 删除配套信息
+  * 根据公寓id，操作公寓-配套关系表，删除该公寓所对应的配套id
+* 删除标签信息
+  * 同删除配套信息逻辑
+* 删除杂费值信息
+  * 删除公寓-杂费关系
+
+
+
+补充：由于公寓下会包含房间信息，因此在删除公寓时最好先判断一下该公寓下是否存在房间信息，若存在，则提醒用户先删除房间信息后再删除公寓信息.
+
+通用mapper提供了selectCount方法，查询有几条数据。
+
+```java
+LambdaQueryWrapper<RoomInfo> roomQueryWrapper = new LambdaQueryWrapper<>();
+roomQueryWrapper.eq(RoomInfo::getApartmentId, id);
+Long count = roomInfoMapper.selectCount(roomQueryWrapper);
+if (count > 0) {
+    //直接为前端返回如下响应：先删除房间信息再删除公寓信息
+}
+```
+
+想要直接为前端返回响应，可利用前边配置的全局异常处理功能（此处直接抛出异常，全局异常处理器捕获到异常后，便会直接为前端返回响应结果）。
+
+但是抛出的没有具体信息怎么办，exception（"message"）参数传递错误信息。没有状态码怎么办。自定义异常，扩展属性。
+
+```java
+/**
+ * 自定义异常处理 扩展RuntimeException
+ */
+@Data
+public class LeaseException extends RuntimeException{
+    private  Integer code;
+
+    public LeaseException(Integer code,String message){
+        super(message);//父类字段不能直接修改，但是可以调用方法
+        this.code = code;
+    }
+}
+```
+
+再全局异常处理器中配置处理该异常
+
+```java
+/**
+ * springmvc 提供了全局异常处理功能
+ * `@ControllerAdvice`用于声明处理全局Controller方法异常的类
+ * `@ExceptionHandler`用于声明处理异常的方法，`value`属性用于声明该方法处理的异常类型
+ * `@ResponseBody`表示将方法的返回值作为HTTP的响应体
+ */
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(LeaseException.class)
+    @ResponseBody
+    public Result error(LeaseException e){
+
+        e.printStackTrace();
+        return Result.fail(e.getCode(),e.getMessage());
+    }
+}
+```
+
+要确保Result.fail()有该类型的构造器
+
+```java
+    public static <T> Result<T> fail(Integer code,String message) {
+        Result<T> result = build(null);//data数据
+        result.setCode(code);
+        result.setMessage(message);
+        return  result;
+    }
+```
+
+将异常和异常信息定义为枚举类的实例，可读性，以及约束更好。
+
+```java
+  LambdaQueryWrapper<RoomInfo> roomInfoQueryWrapper = new LambdaQueryWrapper<>();
+        roomInfoQueryWrapper.eq(RoomInfo::getApartmentId,id);
+        Long count = roomInfoMapper.selectCount(roomInfoQueryWrapper);
+        if (count > 0){
+            //提示有房间不要删除。
+            throw  new LeaseException(ResultCodeEnum.DELETE_ERROR.getCode(),ResultCodeEnum.DELETE_ERROR.getMessage());
+        }
+```
+
+代码太长了，我们可以直接传一个枚举类型，创建一个枚举类型的构造器。
+
+```java
+/**
+ * 自定义异常处理 扩展RuntimeException
+ */
+@Data
+public class LeaseException extends RuntimeException{
+    private  Integer code;
+
+    public LeaseException(Integer code,String message){
+        super(message);//父类字段不能直接修改，但是可以调用方法
+        this.code = code;
+    }
+
+    public LeaseException(ResultCodeEnum resultCodeEnum) {
+        super(resultCodeEnum.getMessage());
+        this.code=resultCodeEnum.getCode();
+    }
+}
+```
+
+
+
