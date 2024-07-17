@@ -1,6 +1,7 @@
 package com.ls.lease.web.admin.controller.user;
 
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.common.result.Result;
 import com.ls.lease.model.entity.UserInfo;
@@ -33,6 +34,10 @@ public class UserInfoController {
     @Operation(summary = "根据用户id更新账号状态")
     @PostMapping("updateStatusById")
     public Result updateStatusById(@RequestParam Long id, @RequestParam BaseStatus status) {
+        LambdaUpdateWrapper<UserInfo> userInfoUpdateWrapper = new LambdaUpdateWrapper<>();
+        userInfoUpdateWrapper.eq(UserInfo::getId,id)
+                        .set(UserInfo::getStatus,status);
+        userInfoService.update(userInfoUpdateWrapper);
         return Result.ok();
     }
 }
