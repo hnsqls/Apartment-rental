@@ -1,6 +1,7 @@
 package com.ls.lease.web.admin.controller.system;
 
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.common.result.Result;
 import com.ls.lease.model.entity.SystemUser;
@@ -55,7 +56,11 @@ public class SystemUserController {
     @Operation(summary = "判断后台用户名是否可用")
     @GetMapping("isUserNameAvailable")
     public Result<Boolean> isUsernameExists(@RequestParam String username) {
-        return Result.ok();
+        LambdaQueryWrapper<SystemUser> systemUserQueryWrapper = new LambdaQueryWrapper<>();
+        systemUserQueryWrapper.eq(SystemUser::getUsername,username);
+        long count = systemUserService.count(systemUserQueryWrapper);
+
+        return Result.ok(count ==0);
     }
 
     @DeleteMapping("deleteById")

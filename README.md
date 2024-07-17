@@ -2676,5 +2676,27 @@ public class SystemUserServiceImpl extends ServiceImpl<SystemUserMapper, SystemU
 
     
 
-  
+#### 4. 判断后台用户名是否可用
+
+要求用户名不能重复
+
+当输入的用户名不和数据库里面的用户名重复在可用
+
+```java
+    @Operation(summary = "判断后台用户名是否可用")
+    @GetMapping("isUserNameAvailable")
+    public Result<Boolean> isUsernameExists(@RequestParam String username) {
+        LambdaQueryWrapper<SystemUser> systemUserQueryWrapper = new LambdaQueryWrapper<>();
+        systemUserQueryWrapper.eq(SystemUser::getUsername,username);
+        long count = systemUserService.count(systemUserQueryWrapper);
+
+        return Result.ok(count ==0);
+    }
+```
+
+
+
+
+
+
 
