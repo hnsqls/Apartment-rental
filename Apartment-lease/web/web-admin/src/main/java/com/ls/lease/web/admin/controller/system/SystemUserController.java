@@ -11,6 +11,7 @@ import com.ls.lease.web.admin.vo.system.user.SystemUserQueryVo;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.checkerframework.checker.units.qual.C;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -42,6 +43,11 @@ public class SystemUserController {
     @Operation(summary = "保存或更新后台用户信息")
     @PostMapping("saveOrUpdate")
     public Result saveOrUpdate(@RequestBody SystemUser systemUser) {
+
+        if(systemUser.getPassword() != null){
+            String md5password = DigestUtils.md5Hex(systemUser.getPassword()); //如果密码为空进行md5处理会异常
+            systemUser.setPassword(md5password);
+        }
         systemUserService.saveOrUpdate(systemUser);
         return Result.ok();
     }

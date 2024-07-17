@@ -2589,3 +2589,92 @@ public class SystemUserServiceImpl extends ServiceImpl<SystemUserMapper, SystemU
 
 
 
+#### 3. 保存或更新后台用户信息
+
+单表-直接通用service
+
+* controller
+
+```java
+    @Operation(summary = "保存或更新后台用户信息")
+    @PostMapping("saveOrUpdate")
+    public Result saveOrUpdate(@RequestBody SystemUser systemUser) {
+
+        if(systemUser.getPassword() != null){
+            String md5password = DigestUtils.md5Hex(systemUser.getPassword()); //如果密码为空进行md5处理会异常
+            systemUser.setPassword(md5password);
+        }
+        systemUserService.saveOrUpdate(systemUser);
+        return Result.ok();
+    }
+```
+
+需要注意的是,在处理密码时,一般都不会将明文存储在数据库中.
+
+**知识点**：
+
+- **密码处理**
+
+  用户的密码通常不会直接以明文的形式保存到数据库中，而是会先经过处理，然后将处理之后得到的"密文"保存到数据库，这样能够降低数据库泄漏导致的用户账号安全问题。
+
+  密码通常会使用一些单向函数进行处理，如下图所示
+
+  ![image-20240717155458960](images/README.assets/image-20240717155458960.png)
+
+  常用于处理密码的单向函数（算法）有MD5、SHA-256等，**Apache Commons**提供了一个工具类`DigestUtils`，其中就包含上述算法的实现。
+
+  使用该工具类需引入`commons-codec`依赖，在**common模块**的pom.xml中增加如下内容
+
+  ```xml
+  <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+  </dependency>
+  ```
+
+  ```java
+    String md5password = DigestUtils.md5Hex(systemUser.getPassword()); 
+  ```
+
+  需要注意的是,在更新操作时,传来的密码值时null,那么执行通用方法,会将密码更新成null码?
+
+  答案是不会的,
+
+  * **Mybatis-Plus update strategy**
+
+  使用Mybatis-Plus提供的更新方法时，若实体中的字段为`null`，默认情况下，最终生成的update语句中，不会包含该字段。若想改变默认行为，可做以下配置。	
+
+  * 全局配置
+
+  在`application.yml`中配置如下参数
+
+  ```xml
+  mybatis-plus:
+    global-config:
+      db-config:
+        update-strategy: <strategy>
+  ```
+
+  **注**：上述`<strategy>`可选值有：`ignore`、`not_null`、`not_empty`、`never`，默认值为`not_null`
+
+  - `ignore`：忽略空值判断，不管字段是否为空，都会进行更新
+  - `not_null`：进行非空判断，字段非空才会进行判断
+  - `not_empty`：进行非空判断，并进行非空串（""）判断，主要针对字符串类型
+  - `never`：从不进行更新，不管该字段为何值，都不更新
+
+  
+
+  * 局部配置
+
+    在实体类中的具体字段通过`@TableField`注解进行配置，如下：
+
+    ```java
+    @Schema(description = "密码")
+    @TableField(value = "password", updateStrategy = FieldStrategy.NOT_EMPTY)
+    private String password;
+    ```
+
+    
+
+  
+
