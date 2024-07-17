@@ -2397,5 +2397,128 @@ public enum BaseStatus implements BaseEnum {
 
 
 
+### 后台用户管理
+![image-20240717140318493](images/README.assets/image-20240717140318493.png)
+
+点击编辑,有个回显功能,即根据id查询后台用户信息.
+
+![image-20240717140414788](images/README.assets/image-20240717140414788.png)
+
+后台用户管理的接口
+
+```java
+@Tag(name = "后台用户信息管理")
+@RestController
+@RequestMapping("/admin/system/user")
+public class SystemUserController {
+
+    @Autowired
+    SystemUserService service;
+}
+```
+
+
+
+
+
+#### 1.分页查询后端用户信息
+
+查看请求数据和响应数据
+
+* **请求的数据结构**
+
+  - `current`和`size`为分页相关参数，分别表示**当前所处页面**和**每个页面的记录数**。
+  - `SystemUserQueryVo`为房间的查询条件，详细结构如下：
+
+  ```java
+  @Data
+  @Schema(description = "员工查询实体")
+  public class SystemUserQueryVo {
+  
+      @Schema(description= "员工姓名")
+      private String name;
+  
+      @Schema(description= "手机号码")
+      private String phone;
+  }
+  ```
+
+* 响应的数据结构
+
+  ```java
+  @Data
+  @Schema(description = "后台管理系统用户基本信息实体")
+  public class SystemUserItemVo extends SystemUser {
+  
+      @Schema(description = "岗位名称")
+      @TableField(value = "post_name")
+      private String postName;
+  }
+  ```
+
+* controller
+
+```java
+    @Operation(summary = "根据条件分页查询后台用户列表")
+    @GetMapping("page")
+    public Result<IPage<SystemUserItemVo>> page(@RequestParam long current, @RequestParam long size, SystemUserQueryVo queryVo) {
+        Page<SystemUser> page = new Page<>(current, size);
+        IPage<SystemUserItemVo> result =  systemUserService.selectSysUserpage(page,queryVo);
+        return Result.ok(result);
+    }
+```
+
+* service
+
+```java
+ IPage<SystemUserItemVo> selectSysUserpage(Page<SystemUser> page, SystemUserQueryVo queryVo);
+@Service
+
+public class SystemUserServiceImpl extends ServiceImpl<SystemUserMapper, SystemUser>
+        implements SystemUserService {
+    
+    @Autowired
+    private SystemUserMapper mapper;
+
+    @Override
+    public IPage<SystemUserItemVo> selectSysUserpage(Page<SystemUser> page, SystemUserQueryVo queryVo) {
+        return mapper.selectSysUserpage(page,queryVo);
+    }
+}
+```
+
+* mapper
+
+```java
+ IPage<SystemUserItemVo> selectSysUserpage(Page<SystemUser> page, SystemUserQueryVo queryVo);
+ <select id="selectSysUserpage" resultType="com.ls.lease.web.admin.vo.system.user.SystemUserItemVo">
+        select u.id,
+               u.username,
+               u.name,
+               u.type,
+               u.phone,
+               u.avatar_url,
+               u.additional_info,
+               u.post_id,
+               u.status,
+               p.name post_name
+
+        from system_user u
+                 left join system_post p
+                           on u.post_id = p.id and p.is_deleted=0
+
+        <where>
+            u.is_deleted=0
+            <if test="queryVo.name != null and queryVo.name != ''">
+                and username like concat('%',#{queryVo.name},'%')
+            </if>
+            <if test="queryVo.phone != null and queryVo.phone != ''" >
+                and phone like  concat('%',#{queryVo.phone},'%')
+            </if>
+        </where>
+
+    </select>
+```
+
 
 

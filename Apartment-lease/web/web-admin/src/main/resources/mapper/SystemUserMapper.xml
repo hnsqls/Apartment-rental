@@ -4,4 +4,31 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ls.lease.web.admin.mapper.SystemUserMapper">
 
+    <select id="selectSysUserpage" resultType="com.ls.lease.web.admin.vo.system.user.SystemUserItemVo">
+        select u.id,
+               u.username,
+               u.name,
+               u.type,
+               u.phone,
+               u.avatar_url,
+               u.additional_info,
+               u.post_id,
+               u.status,
+               p.name post_name
+
+        from system_user u
+                 left join system_post p
+                           on u.post_id = p.id and p.is_deleted=0
+
+        <where>
+            u.is_deleted=0
+            <if test="queryVo.name != null and queryVo.name != ''">
+                and username like concat('%',#{queryVo.name},'%')
+            </if>
+            <if test="queryVo.phone != null and queryVo.phone != ''" >
+                and phone like  concat('%',#{queryVo.phone},'%')
+            </if>
+        </where>
+
+    </select>
 </mapper>

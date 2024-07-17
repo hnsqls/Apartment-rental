@@ -1,10 +1,13 @@
 package com.ls.lease.web.admin.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.model.entity.SystemUser;
 //import com.ls.lease.web.admin.vo.system.user.SystemUserItemVo;
 //import com.ls.lease.web.admin.vo.system.user.SystemUserQueryVo;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.ls.lease.web.admin.vo.system.user.SystemUserItemVo;
+import com.ls.lease.web.admin.vo.system.user.SystemUserQueryVo;
 
 /**
 * @author liubo
@@ -13,4 +16,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
 */
 public interface SystemUserService extends IService<SystemUser> {
 
+    IPage<SystemUserItemVo> selectSysUserpage(Page<SystemUser> page, SystemUserQueryVo queryVo);
 }
