@@ -17,4 +17,6 @@ import com.ls.lease.web.admin.vo.system.user.SystemUserQueryVo;
 public interface SystemUserService extends IService<SystemUser> {
 
     IPage<SystemUserItemVo> selectSysUserpage(Page<SystemUser> page, SystemUserQueryVo queryVo);
+
+    SystemUserItemVo getSysUSerById(Long id);
 }

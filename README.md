@@ -2522,3 +2522,56 @@ public class SystemUserServiceImpl extends ServiceImpl<SystemUserMapper, SystemU
 
 
 
+#### 2. 根据ID查询后台用户信息
+
+* 查看请求和响应数据个格数
+
+  * 请求数据格式 用户id
+
+  * 响应数据格式
+
+  * ```java'
+    @Data
+    @Schema(description = "后台管理系统用户基本信息实体")
+    public class SystemUserItemVo extends SystemUser {
+    
+        @Schema(description = "岗位名称")
+        @TableField(value = "post_name")
+        private String postName;
+    }
+    ```
+
+  * 和分页查询的返回数据结构一样,不过上个是个list,这个只有一个结果.
+
+* 思路
+
+  * 涉及多表,但是结果只有一个,可以在代码层面上查寻两次,封装结果,返回.
+
+* controller
+
+```java
+    @Operation(summary = "根据ID查询后台用户信息")
+    @GetMapping("getById")
+    public Result<SystemUserItemVo> getById(@RequestParam Long id) {
+        SystemUserItemVo result = systemUserService.getSysUSerById(id);
+        return Result.ok(result);
+    }
+
+```
+
+* service
+
+```java
+  SystemUserItemVo getSysUSerById(Long id);
+   @Override
+    public SystemUserItemVo getSysUSerById(Long id) {
+        SystemUser systemUser = mapper.selectById(id);
+        SystemPost systemPost = systemPostMapper.selectById(systemUser.getPostId());
+        SystemUserItemVo systemUserItemVo = new SystemUserItemVo();
+        BeanUtils.copyProperties(systemUser,systemUserItemVo);
+        systemUserItemVo.setPostName(systemPost.getName());
+
+        return systemUserItemVo;
+    }
+```
+
