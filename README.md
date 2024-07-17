@@ -2167,3 +2167,85 @@ mapper
 #### 根据id更新租约状态
 
  updatewrapper。 状态是枚举类型，前面已经定义了映射规则。
+
+
+
+#### 定时检查租约状态
+
+ 定时检查租约信息，功能如何实现。
+
+spring中提供了定时方法
+
+* 启用Spring Boot定时任务
+
+在SpringBoot启动类上增加`@EnableScheduling`注解，如下
+
+```java
+@SpringBootApplication
+@EnableScheduling
+public class AdminWebApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(AdminWebApplication.class, args);
+    }
+}
+```
+
+* 编写定时逻辑
+
+```java
+@Component
+public class ScheduledTasks {
+
+    @Autowired
+    private LeaseAgreementService leaseAgreementService;
+
+    @Scheduled(cron = "0 0 0 * * *")
+    public void checkLeaseStatus() {
+
+        LambdaUpdateWrapper<LeaseAgreement> updateWrapper = new LambdaUpdateWrapper<>();
+        Date now = new Date();
+        updateWrapper.le(LeaseAgreement::getLeaseEndDate, now);
+        updateWrapper.eq(LeaseAgreement::getStatus, LeaseStatus.SIGNED);
+        updateWrapper.in(LeaseAgreement::getStatus, LeaseStatus.SIGNED, LeaseStatus.WITHDRAWING);
+
+        leaseAgreementService.update(updateWrapper);
+    }
+}
+```
+
+**知识点**:
+
+SpringBoot中的cron表达式语法如下
+
+```ini
+  ┌───────────── second (0-59)
+  │ ┌───────────── minute (0 - 59)
+  │ │ ┌───────────── hour (0 - 23)
+  │ │ │ ┌───────────── day of the month (1 - 31)
+  │ │ │ │ ┌───────────── month (1 - 12) (or JAN-DEC)
+  │ │ │ │ │ ┌───────────── day of the week (0 - 7)
+  │ │ │ │ │ │          (0 or 7 is Sunday, or MON-SUN)
+  │ │ │ │ │ │
+  * * * * * *
+```
+
+思路： 请用spring框架中的定时方法，方法的逻辑是没天00：00：00 检查在租状态的租约信息的租约结束日期。如果小于检查时日期就更新租约信息。
+
+```java
+@Component
+public class ScheduleTask {
+
+    @Autowired
+    private LeaseAgreementService leaseAgreementService;
+
+    @Scheduled(cron = "0 0 0 * * * ")
+    public void checkLeaseStatus(){
+        LambdaUpdateWrapper<LeaseAgreement> leaseAgreementUpdateWrapper = new LambdaUpdateWrapper<>();
+        leaseAgreementUpdateWrapper.le(LeaseAgreement::getLeaseEndDate, new Date())
+                .in(LeaseAgreement::getStatus, LeaseStatus.SIGNED, LeaseStatus.WITHDRAWING)
+                .set(LeaseAgreement::getStatus, LeaseStatus.EXPIRED);
+        leaseAgreementService.update(leaseAgreementUpdateWrapper);
+    }
+}
+```
+
