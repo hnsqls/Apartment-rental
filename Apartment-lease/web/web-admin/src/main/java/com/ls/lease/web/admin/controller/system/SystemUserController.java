@@ -2,6 +2,7 @@ package com.ls.lease.web.admin.controller.system;
 
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.common.result.Result;
 import com.ls.lease.model.entity.SystemUser;
@@ -66,12 +67,19 @@ public class SystemUserController {
     @DeleteMapping("deleteById")
     @Operation(summary = "根据ID删除后台用户信息")
     public Result removeById(@RequestParam Long id) {
+        systemUserService.removeById(id);
         return Result.ok();
     }
 
     @Operation(summary = "根据ID修改后台用户状态")
     @PostMapping("updateStatusByUserId")
     public Result updateStatusByUserId(@RequestParam Long id, @RequestParam BaseStatus status) {
+
+        LambdaUpdateWrapper<SystemUser> systemUserUpdateWrapper = new LambdaUpdateWrapper<>();
+
+        systemUserUpdateWrapper.eq(SystemUser::getId,id)
+                        .set(SystemUser::getStatus,status);
+        systemUserService.update(systemUserUpdateWrapper);
         return Result.ok();
     }
 }

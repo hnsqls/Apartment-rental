@@ -2696,6 +2696,27 @@ public class SystemUserServiceImpl extends ServiceImpl<SystemUserMapper, SystemU
 
 
 
+#### 5. 根据ID删除后台用户信息
+
+```java
+    @DeleteMapping("deleteById")
+    @Operation(summary = "根据ID删除后台用户信息")
+    public Result removeById(@RequestParam Long id) {
+        systemUserService.removeById(id);
+        return Result.ok();
+    }
+```
+
+#### 6. 根据ID修改后台用户状态
+
+* 请求数据结构  id 和状态
+
+controller
+
+```java'
+
+```
+
 
 
 
