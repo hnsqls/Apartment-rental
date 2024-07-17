@@ -2249,3 +2249,125 @@ public class ScheduleTask {
 }
 ```
 
+### 用户管理
+
+![image-20240717102831091](images/README.assets/image-20240717102831091.png)
+
+#### 根据条件分页查询用户列表
+
+查看请求和响应数据结构
+
+* 请求数据
+  * `current`和`size`为分页相关参数，分别表示**当前所处页面**和**每个页面的记录数**。
+  * `UserInfoQueryVo`为用户的查询条件，详细结构如下：
+
+```java
+@Schema(description = "用户信息查询实体")
+@Data
+public class UserInfoQueryVo {
+
+    @Schema(description = "用户手机号码")
+    private String phone;
+
+    @Schema(description = "用户账号状态")
+    private BaseStatus status;
+}
+```
+
+* 响应数据
+  * 单个用户表
+
+实现思路是，controller掉service，servic调mapper，自定义mapper，动态sql，并且手机号模糊查询，状态精确查询。
+
+```xml
+ <select id="pageUserInfo" resultType="com.ls.lease.model.entity.UserInfo">
+        select id,
+               phone,
+               avatar_url,
+               nickname,
+               status
+        from user_info
+
+        <where>
+            is_deleted = 0
+            <if test="queryVo.phone !=null and queryVo.phone != ''">
+                and phone like concat('%',#{queryVo.phone},'%')
+            </if>
+            <if test="queryVo.status != null and queryVo.status !=''">
+                and status = #{queryVo.status}
+            </if>
+        </where>
+
+    </select>
+```
+
+但是测试时，前端传来状态值，发生报错.
+
+```java
+Error querying database.  Cause: java.lang.IllegalArgumentException: invalid comparison: com.ls.lease.model.enums.BaseStatus and java.lang.String
+Cause: java.lang.IllegalArgumentException: invalid comparison: com.ls.lease.model.enums.BaseStatus and java.lang.String
+```
+
+这个错误信息表明在数据库查询过程中，你试图将一个枚举类型（`com.ls.lease.model.enums.BaseStatus`）与一个字符串（`java.lang.String`）进行比较，但这是不允许的，因为它们的类型不匹配。
+
+sql的逻辑错了，枚举类不可能是空字符串。更改动态sql
+
+```sql
+select id,
+               phone,
+               avatar_url,
+               nickname,
+               status
+        from user_info
+
+        <where>
+            is_deleted = 0
+            <if test="queryVo.phone !=null and queryVo.phone != ''">
+                and phone like concat('%',#{queryVo.phone},'%')
+            </if>
+            <if test="queryVo.status != null">
+                and status = #{queryVo.status}
+            </if>
+        </where>
+
+```
+
+需要注意的是，status是int类型，status实是枚举类型，他们是怎么可以相比较的。
+
+这里是mybatis的Typhandler，`EnumTypeHandler`是MyBatis默认的枚举转换器，它将枚举实例的`name()`方法返回的字符串作为值存入数据库，并从数据库中读取字符串后通过`Enum.valueOf(Class<T> enumType, String name)`方法转换回枚举实例。但是我们是通过code映射的，怎么办呢？可以自定义Tyhandler的映射规则。
+
+不过MybatisPlus提供了一个[通用的处理枚举类型的TypeHandler](https://baomidou.com/pages/8390a4/)。其使用十分简单，只需在枚举类的`code`属性上增加一个注解`@EnumValue`，Mybatis-Plus便可完成从`枚举`对象到`code`属性之间的相互映射。
+
+```java
+public enum BaseStatus implements BaseEnum {
+
+    ENABLE(1, "正常"),
+
+    DISABLE(0, "禁用");
+
+    @EnumValue
+    @JsonValue
+    private Integer code;
+
+    private String name;
+
+    BaseStatus(Integer code, String name) {
+        this.code = code;
+        this.name = name;
+    }
+
+    @Override
+    public Integer getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getName() {
+        return this.name;
+    }
+}
+
+```
+
+
+

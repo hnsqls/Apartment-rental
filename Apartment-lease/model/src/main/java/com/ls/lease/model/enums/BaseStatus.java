@@ -12,6 +12,8 @@ public enum BaseStatus implements BaseEnum {
     DISABLE(0, "禁用");
 
 
+
+
     @EnumValue
     @JsonValue
     private Integer code;

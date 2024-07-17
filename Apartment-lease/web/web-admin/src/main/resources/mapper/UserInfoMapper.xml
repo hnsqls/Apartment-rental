@@ -4,4 +4,23 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ls.lease.web.admin.mapper.UserInfoMapper">
 
+    <select id="pageUserInfo" resultType="com.ls.lease.model.entity.UserInfo">
+        select id,
+               phone,
+               avatar_url,
+               nickname,
+               status
+        from user_info
+
+        <where>
+            is_deleted = 0
+            <if test="queryVo.phone !=null and queryVo.phone != ''">
+                and phone like concat('%',#{queryVo.phone},'%')
+            </if>
+            <if test="queryVo.status != null">
+                and status = #{queryVo.status}
+            </if>
+        </where>
+
+    </select>
 </mapper>
