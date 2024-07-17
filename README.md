@@ -2575,3 +2575,17 @@ public class SystemUserServiceImpl extends ServiceImpl<SystemUserMapper, SystemU
     }
 ```
 
+* 测试
+* ![image-20240717152844251](images/README.assets/image-20240717152844251.png)
+
+不应该显示密码,我们自定义sql的时候,可以写sql的时候不查该字段.那么使用通用mapper后怎么处理呢,
+
+很简单在密码字段上加上注解如下
+
+```java
+    @TableField(value = "password",select = false)
+    private String password;
+```
+
+
+

@@ -42,6 +42,7 @@ public class SystemUserController {
     @Operation(summary = "保存或更新后台用户信息")
     @PostMapping("saveOrUpdate")
     public Result saveOrUpdate(@RequestBody SystemUser systemUser) {
+        systemUserService.saveOrUpdate(systemUser);
         return Result.ok();
     }
 
