@@ -1,7 +1,3 @@
-
-
-
-
 ## 项目大致
 
 ## 移动端
@@ -2714,10 +2710,246 @@ public class SystemUserServiceImpl extends ServiceImpl<SystemUserMapper, SystemU
 controller
 
 ```java'
+    @Operation(summary = "根据ID修改后台用户状态")
+    @PostMapping("updateStatusByUserId")
+    public Result updateStatusByUserId(@RequestParam Long id, @RequestParam BaseStatus status) {
 
+        LambdaUpdateWrapper<SystemUser> systemUserUpdateWrapper = new LambdaUpdateWrapper<>();
+
+        systemUserUpdateWrapper.eq(SystemUser::getId,id)
+                        .set(SystemUser::getStatus,status);
+        systemUserService.update(systemUserUpdateWrapper);
+        return Result.ok();
+    }
 ```
 
 
 
+## 登录管理
+
+### Session和Token认证
+
+基于**Session**的认证和基于**Token**的认证是两种常见的用户身份认证方案，它们在实现机制、安全性、适用场景等方面各有特点。以下是对这两种认证方案的详细解析：
+* 一基于Session的认证
+  * 认证流程
+    * 用户输入账号和密码进行登录。
+    
+    * 服务器验证用户信息，如果验证通过，则在服务端生成用户相关的数据保存在Session中（当前会话）。
+    
+    * 服务器将Session ID发送给客户端，并存储在客户端的Cookie中。
+    
+    * 客户端后续请求时，会带上Session ID，服务器通过验证Session ID来确认用户的身份和会话状态。
+  
+    * 当用户退出系统或Session过期销毁时，客户端的Session ID也随之失效。
+  
+* 优点
+  * 实现简单，易于理解和维护。
+  * Session信息存储在服务器端，相对安全。
+* 缺点
+
+  * 服务器需要维护大量的Session信息，增加了服务器的存储负担。
+  * Session ID存储在客户端的Cookie中，如果Cookie被窃取，则存在安全风险。
+  * Session认证通常依赖于客户端的Cookie，无状态的服务器无法直接识别用户身份。
+* 适用场景
+  * 适用于用户数量相对较少、服务器资源相对充足的应用场景。
+
+  * 适用于需要频繁进行状态保持的应用场景，如Web应用中的用户登录状态保持。
+*  二、基于Token的认证
+*  认证流程
+     *  用户输入账号和密码进行登录。
+     *  服务器验证用户信息，如果验证通过，则生成一个Token（通常包含用户信息、过期时间等）并发送给客户端。
+     *  客户端将Token存储在本地（LocalStorage等），并在后续请求中带上Token。
+     *  服务器通过验证Token来确认用户的身份和权限。
+     *  Token过期后，用户需要重新登录以获取新的Token。
+* 优点
+
+  + 服务器不需要存储Token信息，减轻了服务器的存储负担。
+  + Token可以存储在客户端的多种存储介质中，提高了灵活性。
+  + Token支持跨域认证，适用于分布式系统。
+
+* 缺点
+
+  + Token的验证需要服务器进行额外的计算，可能会增加服务器的处理负担。
+
+* 适用场景
+  + 适用于用户数量较多、服务器资源有限的应用场景。
+  + 适用于需要跨域认证、分布式系统的应用场景。
+  + 适用于对安全性要求较高、需要频繁进行身份验证的应用场景。
+
+总结
+
+  基于Session的认证和基于Token的认证各有优缺点，在选择认证方案时需要根据实际应用场景和需求进行综合考虑。例如，在需要频繁进行状态保持且用户数量相对较少的应用场景中，可以选择基于Session的认证；而在用户数量较多、需要跨域认证或分布式系统的应用场景中，则更适合选择基于Token的认证。
 
 
+
+### Token详细
+
+我们所说的Token，通常指**JWT**（JSON Web TOKEN）。JWT是一种轻量级的安全传输方式，用于在两个实体之间传递信息，通常用于身份验证和信息传递。
+
+JWT是一个字符串，如下图所示，该字符串由三部分组成，三部分由`.`分隔。三个部分分别被称为
+
+- `header`（头部）
+- `payload`（负载）
+- `signature`（签名）
+
+![image-20240717180715253](images/README.assets/image-20240717180715253.png)
+
+各部分的作用如下
+
+* **Header（头部）**
+
+  Header部分是由一个JSON对象经过`base64url`编码得到的，这个JSON对象用于保存JWT 的类型（`typ`）、签名算法（`alg`）等元信息，例如
+
+  ```json
+  {
+    "alg": "HS256",
+    "typ": "JWT"
+  }
+  ```
+
+* **Payload（负载）**
+  也称为 Claims（声明），也是由一个JSON对象经过`base64url`编码得到的，用于保存要传递的具体信息。JWT规范定义了7个官方字段，如下：
+
+  - iss (issuer)：签发人
+  - exp (expiration time)：过期时间
+  - sub (subject)：主题
+  - aud (audience)：受众
+  - nbf (Not Before)：生效时间
+  - iat (Issued At)：签发时间
+  - jti (JWT ID)：编号
+
+  除此之外，我们还可以自定义任何字段，例如
+  
+  ```json
+  {
+    "sub": "1234567890",
+    "name": "John Doe",
+    "iat": 1516239022
+  }
+  ```
+  
+* **Signature（签名）**
+  
+  由头部、负载和秘钥一起经过（header中指定的签名算法）计算得到的一个字符串，用于防止消息被篡改。
+
+### 登录流程
+
+后台管理系统的登录流程如下图所示
+
+![image-20240719115547968](images/README.assets/image-20240719115547968.png)
+
+根据上述登录流程，可分析出，登录管理共需三个接口，分别是**获取图形验证码**、**登录**、**获取登录用户个人信息**，除此之外，我们还需为所有受保护的接口增加验证JWT合法性的逻辑，这一功能可通过`HandlerInterceptor`来实现。
+
+### 接口开发
+
+#### 1. 获取图形验证码
+
+* 查看响应数据
+
+```java
+@Data
+@Schema(description = "图像验证码")
+@AllArgsConstructor
+public class CaptchaVo {
+
+    @Schema(description="验证码图片信息")
+    private String image;
+
+    @Schema(description="验证码key")
+    private String key;
+}
+```
+
+  需要注意的是String image， 是传的图片的信息，是图片经过base64url编码获得得字符串。这个字符串，在html中可用直接用image标签解析。
+* **配置所需依赖**
+
+  * **验证码生成工具**
+
+    本项目使用开源的验证码生成工具**EasyCaptcha**，其支持多种类型的验证码，例如gif、中文、算术等，并且简单易用，具体内容可参考其[官方文档](https://gitee.com/ele-admin/EasyCaptcha)。
+
+    在**common模块**的pom.xml文件中增加如下内容
+
+    ```xml
+    <dependency>
+        <groupId>com.github.whvcse</groupId>
+        <artifactId>easy-captcha</artifactId>
+    </dependency>
+    ```
+
+  * **Redis**
+
+  ```xml
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+  </dependency>
+  ```
+
+  在`application.yml`中增加如下配置
+
+  ```yaml
+  spring:
+    data:
+      redis:
+        host: <hostname>
+        port: <port>
+        database: 0
+  ```
+
+* **controller**
+
+  ```java
+  @Operation(summary = "获取图形验证码")
+  @GetMapping("login/captcha")
+  public Result<CaptchaVo> getCaptcha() {
+      CaptchaVo captcha = service.getCaptcha();
+      return Result.ok(captcha);
+  }
+  ```
+
+* **service**
+
+  ```java
+  @Service
+  public class LoginServiceImpl implements LoginService {
+  
+      @Autowired
+      private StringRedisTemplate redisTemplate;
+  
+      /**
+       * 生成验证码图片和uuid
+       * 加入redis 缓存 uuid， 验证码得值
+       * 返回给前端uuid 和验证码图片
+       * @return
+       */
+      @Override
+      public CaptchaVo getCaptcha() {
+  
+          //获取验证码
+          SpecCaptcha specCaptcha = new SpecCaptcha(130, 48, 4);
+  
+          // 获取验证码得值，转小写，忽略大小写不同
+          String code = specCaptcha.text().toLowerCase();
+  
+          //生成key
+  //        String key = "admin:login" + UUID.randomUUID();
+          //统一前缀,创建个类，
+          String key = RedisConstant.ADMIN_LOGIN_PREFIX + UUID.randomUUID();
+  
+  
+          //加入redis缓存
+          //统一管理
+  //        redisTemplate.opsForValue().set(key,code,60, TimeUnit.SECONDS);
+          redisTemplate.opsForValue().set(key,code,RedisConstant.ADMIN_LOGIN_CAPTCHA_TTL_SEC, TimeUnit.SECONDS);
+  
+  
+  
+          //图片转为字符传   base64编码
+          String picture01 = specCaptcha.toBase64();
+          return new CaptchaVo(picture01,key);
+      }
+  }
+  
+  ```
+
+  

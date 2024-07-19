@@ -2,11 +2,13 @@ package com.ls.lease.web.admin.controller.login;
 
 
 import com.ls.lease.common.result.Result;
+import com.ls.lease.web.admin.service.LoginService;
 import com.ls.lease.web.admin.vo.login.CaptchaVo;
 import com.ls.lease.web.admin.vo.login.LoginVo;
 import com.ls.lease.web.admin.vo.system.user.SystemUserInfoVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "后台管理系统登录管理")
@@ -14,10 +16,13 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/admin")
 public class LoginController {
 
+    @Autowired
+    private LoginService service;
     @Operation(summary = "获取图形验证码")
     @GetMapping("login/captcha")
     public Result<CaptchaVo> getCaptcha() {
-        return Result.ok();
+        CaptchaVo result = service.getCaptcha();
+        return Result.ok(result);
     }
 
     @Operation(summary = "登录")
