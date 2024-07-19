@@ -2952,4 +2952,144 @@ public class CaptchaVo {
   
   ```
 
+#### 2.登录接口
+
+  - **录校验逻辑**
+
+    用户登录的校验逻辑分为三个主要步骤，分别是**校验验证码**，**校验用户状态**和**校验密码**，具体逻辑如下
+
+    - 前端发送`username`、`password`、`captchaKey`、`captchaCode`请求登录。
+    - 判断`captchaCode`是否为空，若为空，则直接响应`验证码为空`；若不为空进行下一步判断。
+    - 根据`captchaKey`从Redis中查询之前保存的`code`，若查询出来的`code`为空，则直接响应`验证码已过期`；若不为空进行下一步判断。
+    - 比较`captchaCode`和`code`，若不相同，则直接响应`验证码不正确`；若相同则进行下一步判断。
+    - 根据`username`查询数据库，若查询结果为空，则直接响应`账号不存在`；若不为空则进行下一步判断。
+    - 查看用户状态，判断是否被禁用，若禁用，则直接响应`账号被禁`；若未被禁用，则进行下一步判断。
+    - 比对`password`和数据库中查询的密码，若不一致，则直接响应`账号或密码错误`，若一致则进行入最后一步。
+    - 创建JWT，并响应给浏览器。
+    
+- 请求数据结构
+
+  ```java
+  @Data
+  @Schema(description = "后台管理系统登录信息")
+  public class LoginVo {
   
+      @Schema(description="用户名")
+      private String username;
+  
+      @Schema(description="密码")
+      private String password;
+  
+      @Schema(description="验证码key")
+      private String captchaKey;
+  
+      @Schema(description="验证码code")
+      private String captchaCode;
+  }
+  ```
+
+- 响应数据结构 
+
+  String 类型得  JWT
+
+- **配置所需依赖**
+
+  登录接口需要为登录成功的用户创建并返回JWT，本项目使用开源的JWT工具**Java-JWT**，配置如下，具体内容可参考[官方文档](https://github.com/jwtk/jjwt/tree/0.11.2)。
+
+  ```xml
+  <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+  </dependency>
+  
+  <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <scope>runtime</scope>
+  </dependency>
+  
+  <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <scope>runtime</scope>
+  </dependency>
+  ```
+
+- 创建jwt工具类
+
+  ```java
+  public class JwtUtil {
+      private static long tokenExpiration = 60 * 60 * 1000L;
+      private static SecretKey secretKey = Keys.hmacShaKeyFor("M0PKKI6pYGVWWfDZw90a0lTpGYX1d4AQ".getBytes());
+  
+      public static String createToken(Long userId, String username) {
+          String token = Jwts.builder().
+                  setSubject("USER_INFO").
+                  setExpiration(new Date(System.currentTimeMillis() + tokenExpiration)).
+                  claim("userId", userId).
+                  claim("username", username).
+                  signWith(secretKey, SignatureAlgorithm.HS256).
+                  compact();
+          return token;
+      }
+  }
+  ```
+
+- controller
+
+  ```java
+      @Operation(summary = "登录")
+      @PostMapping("login")
+      public Result<String> login(@RequestBody LoginVo loginVo) {
+          String result = service.login(loginVo);
+          return Result.ok(result);
+      }
+  ```
+
+- service
+
+  ```java
+   @Override
+      public String login(LoginVo loginVo) {
+          //判断`captchaCode`是否为空，若为空，则直接响应`验证码为空`；若不为空进行下一步判断。
+          if(loginVo.getCaptchaCode() == null){
+              throw new LeaseException(ResultCodeEnum.APP_LOGIN_CODE_EMPTY);
+          }
+          //`captchaKey`从Redis中查询之前保存的`code`，若查询出来的`code`为空，则直接响应`验证码已过期`；若不为空进行下一步判断。
+          String code = redisTemplate.opsForValue().get(loginVo.getCaptchaKey());
+          if (code ==null){
+              throw new LeaseException(ResultCodeEnum.ADMIN_CAPTCHA_CODE_EXPIRED);
+          }
+          //比较`captchaCode`和`code`，若不相同，则直接响应`验证码不正确`；若相同则进行下一步判断。
+          if (!code.equals(loginVo.getCaptchaCode().toLowerCase())){
+              throw  new LeaseException(ResultCodeEnum.ADMIN_CAPTCHA_CODE_ERROR);
+          }
+          //根据`username`查询数据库，若查询结果为空，则直接响应`账号不存在`；若不为空则进行下一步判断。
+          LambdaQueryWrapper<SystemUser> systemUserQueryWrapper = new LambdaQueryWrapper<>();
+          systemUserQueryWrapper.eq(SystemUser::getUsername,loginVo.getUsername());
+          SystemUser systemUser = systemUserMapper.selectOne(systemUserQueryWrapper);
+          if (systemUser == null){
+              throw  new LeaseException(ResultCodeEnum.ADMIN_ACCOUNT_NOT_EXIST_ERROR);
+          }
+          //查看用户状态，判断是否被禁用，若禁用，则直接响应`账号被禁`；若未被禁用，则进行下一步判断。
+          if (systemUser.getStatus()== BaseStatus.DISABLE){
+              throw new LeaseException(ResultCodeEnum.ADMIN_ACCOUNT_DISABLED_ERROR);
+  
+          }
+          //比对`password`和数据库中查询的密码，若不一致，则直接响应`账号或密码错误`，若一致则进行入最后一步。
+          if (!systemUser.getPassword().equals(DigestUtils.md5Hex(loginVo.getPassword()))){
+              throw  new LeaseException(ResultCodeEnum.ADMIN_ACCOUNT_ERROR);
+          }
+  
+  
+          return JwtUtil.createToken(systemUser.getId(),systemUser.getUsername());
+      }
+  ```
+
+  测试发现
+
+  ![image-20240719171509764](images/README.assets/image-20240719171509764.png)
+
+![image-20240719171538370](images/README.assets/image-20240719171538370.png)
+
+空指针异常，没有password，这是因为我们之前设置得不查找密码字段，使用myabtisplus。要想查密码怎么办就自定义sql呗。

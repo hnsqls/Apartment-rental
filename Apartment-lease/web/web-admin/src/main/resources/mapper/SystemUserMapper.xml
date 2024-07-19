@@ -31,4 +31,19 @@
         </where>
 
     </select>
+    <select id="selectByUsername" resultType="com.ls.lease.model.entity.SystemUser">
+        select id,
+               username,
+               password,
+               name,
+               type,
+               phone,
+               avatar_url,
+               additional_info,
+               post_id,
+               status
+        from system_user
+        where username = #{username}
+    </select>
+
 </mapper>
