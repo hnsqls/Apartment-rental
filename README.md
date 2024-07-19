@@ -3093,3 +3093,87 @@ public class CaptchaVo {
 ![image-20240719171538370](images/README.assets/image-20240719171538370.png)
 
 空指针异常，没有password，这是因为我们之前设置得不查找密码字段，使用myabtisplus。要想查密码怎么办就自定义sql呗。
+
+补充
+
+校验jwt
+
+我们需要为所有受保护的接口增加校验JWT合法性的逻辑。具体实现如下
+
+```java
+public class JwtUtil {
+    private static long tokenExpiration = 60 * 60 * 1000L;
+    private static SecretKey secretKey = Keys.hmacShaKeyFor("M0PKKI6pYGVWWfDZw90a0lTpGYX1d4AQ".getBytes());
+
+    public static String createToken(Long userId, String username) {
+        String token = Jwts.builder().
+                setSubject("USER_INFO").
+                setExpiration(new Date(System.currentTimeMillis() + tokenExpiration)).
+                claim("userId", userId).
+                claim("username", username).
+                signWith(secretKey, SignatureAlgorithm.HS256).
+                compact();
+        return token;
+    }
+
+    /**
+     * 校验token
+     * @param token
+     */
+    public static void parseToken(String token){
+        try{
+            Jwts.parserBuilder()
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token);
+        }catch (ExpiredJwtException e){
+            throw  new LeaseException(ResultCodeEnum.TOKEN_EXPIRED);
+        }catch (JwtException e){
+            throw  new LeaseException(ResultCodeEnum.TOKEN_INVALID);
+
+        }
+    }
+    
+}
+```
+
+配置拦截器，内容如下，有关`HanderInterceptor`的相关内容，可参考[官方文档](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-servlet/handlermapping-interceptor.html)。
+
+```java
+@Component
+public class AuthenticationInterceptor implements HandlerInterceptor {
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String token = request.getHeader("access-token");
+        JwtUtil.parseToken(token);
+        return true;
+    }
+}
+```
+
+**注意**：
+
+我们约定，前端登录后，后续请求都将JWT，放置于HTTP请求的Header中，其Header的key为`access-token`。
+
+**注册HandlerInterceptor**
+
+在WebMvcConfiguration`中增加如下内容
+
+```java
+@Autowired
+private AuthenticationInterceptor authenticationInterceptor;
+
+@Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authenticationInterceptor)
+                .addPathPatterns("/admin/**")
+                .excludePathPatterns("/admin/login/**");
+    }
+```
+
+**Knife4j配置**
+
+在增加上述拦截器后，为方便继续调试其他接口，可以获取一个长期有效的Token，将其配置到Knife4j的全局参数中，如下图所示。
+
+![image-20240719181018509](images/README.assets/image-20240719181018509.png)
