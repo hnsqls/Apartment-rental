@@ -3343,3 +3343,147 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
 
 * 注意，请注意，虽然 `ThreadLocal` 很有用，但它也可能导致内存泄漏，特别是在使用线程池时。因为 `ThreadLocal` 变量是与线程关联的，所以如果线程被重用（如在线程池中），而 `ThreadLocal` 变量未被清除，那么这些变量就会一直存在，占用内存。因此，在使用完 `ThreadLocal` 变量后，应该总是调用 `remove()` 方法来清除它。，spingmvc就是使用线程池.
 
+
+
+## 用户端开发
+
+## 项目初始化
+
+* Springboot配置
+
+  ```yaml
+  server:
+    port: 8081
+  ```
+
+  创建启动类
+
+  ```java
+  @SpringBootApplication
+  @MapperScan("com.ls.lease.web.app.mapper")
+  public class AppWebApplication {
+      public static void main(String[] args) {
+          SpringApplication.run(AppWebApplication.class,args);
+      }
+  }
+  
+  ```
+
+  
+
+* Mybatis-Plus配置
+
+  ```yaml
+  spring:
+    datasource:
+      type: com.zaxxer.hikari.HikariDataSource
+      url: jdbc:mysql://192.168.231.100:3306/lease?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
+      username: root
+      password: Ls021223.
+      hikari:
+        connection-test-query: SELECT 1 # 自动检测连接
+        connection-timeout: 60000 #数据库连接超时时间,默认30秒
+        idle-timeout: 500000 #空闲连接存活最大时间，默认600000（10分钟）
+        max-lifetime: 540000 #此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认1800000即30分钟
+        maximum-pool-size: 12 #连接池最大连接数，默认是10
+        minimum-idle: 10 #最小空闲连接数量
+        pool-name: SPHHikariPool # 连接池名称
+    jackson:
+      time-zone: GMT+8
+  #用于打印框架生成的sql语句，便于调试
+  mybatis-plus:
+    configuration:
+      log-impl: org.apache.ibatis.logging.stdout.StdOutImpl 
+  ```
+
+* Knife4j配置
+
+  在**web-app模块**下创建`com.ls.lease.web.app.custom.config.Knife4jConfiguration`类，内容如下：
+
+  ```java
+  @Configuration
+  public class Knife4jConfiguration {
+  
+      @Bean
+      public OpenAPI customOpenAPI() {
+          return new OpenAPI()
+                  .info(new Info()
+                          .title("APP接口")
+                          .version("1.0")
+                          .description("用户端APP接口")
+                          .termsOfService("http://doc.xiaominfo.com")
+                          .license(new License().name("Apache 2.0")
+                                  .url("http://doc.xiaominfo.com")));
+      }
+      
+  
+      @Bean
+      public GroupedOpenApi loginAPI() {
+          return GroupedOpenApi.builder().group("登录信息").
+                  pathsToMatch("/app/login/**", "/app/info").
+                  build();
+      }
+  
+      @Bean
+      public GroupedOpenApi personAPI() {
+          return GroupedOpenApi.builder().group("个人信息").
+                  pathsToMatch(
+                          "/app/history/**",
+                          "/app/appointment/**",
+                          "/app/agreement/**"
+                  ).
+                  build();
+      }
+  
+      @Bean
+      public GroupedOpenApi lookForRoomAPI() {
+          return GroupedOpenApi.builder().group("找房信息").
+                  pathsToMatch(
+                          "/app/apartment/**",
+                          "/app/room/**",
+                          "/app/payment/**",
+                          "/app/region/**",
+                          "/app/term/**"
+                  ).
+                  build();
+      }
+  }
+  ```
+
+  yaml新增如下
+
+  ```yaml
+  #方便接口测试-对于参数是对象来说，有的属性传有的属性不传值   
+  springdoc:
+    default-flat-param-object: true    
+  ```
+
+* 启动测试
+
+  ![image-20240720114023330](images/README.assets/image-20240720114023330.png)
+
+![image-20240720114032223](images/README.assets/image-20240720114032223.png)
+
+创建minio失败，原因是，创建minio需要参数，我们配置minio的时候参数是从配置文件中获取的，我们可以在配置文件中添加参数，以便创建minio，但是该服务不需要使用minio服务，我们可以有另一种解决方法。
+
+由于**common模块**中配置了**MinioClient**这个Bean，并且**web-app模块**依赖于**common模块**，因此在启动**AppWebApplication**时，SpringBoot会创建一个MinioClient实例，但是由于**web-app模块**的application.yml文件中并未提供MinioClient所需的参数（**web-app模块**暂时不需要使用MinioClient），因此MinioClient实例的创建会失败。
+
+为解决该问题，可以为MinioClient的配置类增加一个条件注解`@ConditionalOnProperty`，如下，该注解表达的含义是只有当`minio.endpoint`属性存在时，该配置类才会生效。
+
+```java
+@Configuration
+@EnableConfigurationProperties(MinioProperties.class)
+@ConditionalOnProperty(name = "minio.endpoint")
+public class MinioConfiguration {
+
+    @Autowired
+    private MinioProperties properties;
+
+    @Bean
+    public MinioClient minioClient() {
+        return MinioClient.builder().endpoint(properties.getEndpoint()).credentials(properties.getAccessKey(), properties.getSecretKey()).build();
+    }
+}
+```
+
+启动成功
