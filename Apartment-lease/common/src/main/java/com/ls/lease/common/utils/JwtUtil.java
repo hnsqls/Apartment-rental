@@ -2,10 +2,7 @@ package com.ls.lease.common.utils;
 
 import com.ls.lease.common.exception.LeaseException;
 import com.ls.lease.common.result.ResultCodeEnum;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 
 import javax.crypto.SecretKey;
@@ -27,18 +24,20 @@ public class JwtUtil {
     }
 
     /**
-     * 校验token
+     * 校验token，并返回token的pload值
+     *
      * @param token
+     * @return
      */
-    public static void parseToken(String token){
+    public static Claims parseToken(String token){
         if (token ==null){
             throw new LeaseException(ResultCodeEnum.ADMIN_LOGIN_AUTH);
         }
         try{
-            Jwts.parserBuilder()
+            JwtParser jwtParser = Jwts.parserBuilder()
                     .setSigningKey(secretKey)
-                    .build()
-                    .parseClaimsJws(token);
+                    .build();
+             return jwtParser.parseClaimsJws(token).getBody();
         }catch (ExpiredJwtException e){
             throw  new LeaseException(ResultCodeEnum.TOKEN_EXPIRED);
         }catch (JwtException e){

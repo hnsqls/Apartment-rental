@@ -11,6 +11,7 @@ import com.ls.lease.web.admin.mapper.SystemUserMapper;
 import com.ls.lease.web.admin.service.LoginService;
 import com.ls.lease.web.admin.vo.login.CaptchaVo;
 import com.ls.lease.web.admin.vo.login.LoginVo;
+import com.ls.lease.web.admin.vo.system.user.SystemUserInfoVo;
 import com.wf.captcha.SpecCaptcha;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,5 +113,20 @@ public class LoginServiceImpl implements LoginService {
 
 
         return JwtUtil.createToken(systemUser.getId(),systemUser.getUsername());
+    }
+
+    /**
+     * 根据用户id获得用户信息
+     * @param userid
+     * @return
+     */
+    @Override
+    public SystemUserInfoVo getLoginUserByID(Long userid) {
+        SystemUser systemUser = systemUserMapper.selectById(userid);
+
+        SystemUserInfoVo systemUserInfoVo = new SystemUserInfoVo();
+        systemUserInfoVo.setAvatarUrl(systemUser.getAvatarUrl());
+        systemUserInfoVo.setName(systemUser.getUsername());
+        return systemUserInfoVo;
     }
 }

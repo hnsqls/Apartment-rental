@@ -2840,7 +2840,7 @@ JWT是一个字符串，如下图所示，该字符串由三部分组成，三�
 
 根据上述登录流程，可分析出，登录管理共需三个接口，分别是**获取图形验证码**、**登录**、**获取登录用户个人信息**，除此之外，我们还需为所有受保护的接口增加验证JWT合法性的逻辑，这一功能可通过`HandlerInterceptor`来实现。
 
-### 接口开发
+### 登录接口开发
 
 #### 1. 获取图形验证码
 
@@ -3177,3 +3177,169 @@ private AuthenticationInterceptor authenticationInterceptor;
 在增加上述拦截器后，为方便继续调试其他接口，可以获取一个长期有效的Token，将其配置到Knife4j的全局参数中，如下图所示。
 
 ![image-20240719181018509](images/README.assets/image-20240719181018509.png)
+
+#### 3. 获得登录用户信息
+
+* **查看请求和响应的数据结构**
+
+  * **响应的数据结构**
+
+    ```java
+    @Schema(description = "员工基本信息")
+    @Data
+    public class SystemUserInfoVo {
+    
+        @Schema(description = "用户姓名")
+        private String name;
+    
+        @Schema(description = "用户头像")
+        private String avatarUrl;
+    }
+    ```
+
+  * **请求的数据结构**
+
+    按理说，前端若想获取当前登录用户的个人信息，需要传递当前用户的`id`到后端进行查询。但是由于请求中携带的JWT中就包含了当前登录用户的`id`，故请求个人信息时，就无需再传递`id`。
+
+* **修改`JwtUtil`中的`parseToken`方法**
+
+  由于需要从Jwt中获取用户`id`，因此需要为`parseToken` 方法增加返回值，如下
+
+  ```java
+  public static Claims parseToken(String token){
+  
+      if (token==null){
+          throw new LeaseException(ResultCodeEnum.ADMIN_LOGIN_AUTH);
+      }
+  
+      try{
+          JwtParser jwtParser = Jwts.parserBuilder().setSigningKey(secretKey).build();
+          return jwtParser.parseClaimsJws(token).getBody();
+      }catch (ExpiredJwtException e){
+          throw new LeaseException(ResultCodeEnum.TOKEN_EXPIRED);
+      }catch (JwtException e){
+          throw new LeaseException(ResultCodeEnum.TOKEN_INVALID);
+      }  
+  }
+  ```
+
+* controller
+
+  ```java
+      @Operation(summary = "获取登陆用户个人信息")
+      @GetMapping("info")
+      public Result<SystemUserInfoVo> info(@RequestHeader("access-token") String token) {
+          //下面两行可以拿到用户id，但是这样就解析了两遍token，拦截器解析一次，这里又解析一次。
+          Claims claims = JwtUtil.parseToken(token);
+          Long userid = claims.get("userId", Long.class);
+          SystemUserInfoVo result = service.getLoginUserByID(userid);
+  
+          return Result.ok(result);
+      }
+  }
+  ```
+
+* service
+
+  ```java
+      /**
+       * 根据用户id获得用户信息
+       * @param userid
+       * @return
+       */
+      @Override
+      public SystemUserInfoVo getLoginUserByID(Long userid) {
+          SystemUser systemUser = systemUserMapper.selectById(userid);
+  
+          SystemUserInfoVo systemUserInfoVo = new SystemUserInfoVo();
+          systemUserInfoVo.setAvatarUrl(systemUser.getAvatarUrl());
+          systemUserInfoVo.setName(systemUser.getUsername());
+          return systemUserInfoVo;
+      }
+  ```
+
+  上述controller可以实现功能，但是有点小问题，因为我们配置了拦截器，所以会在拦截器，那里校验一次token，在controller为了得到token的数据，又校验一次。
+
+  * 我们可以这样做
+    * 在拦截器中，配置拦截路径，排除该路径的请求。
+    * 在拦截器中获得token，并保存下来传递给请求。
+
+第一种只需要在webconfig中的拦截器配置中，使用exculed就行
+
+第二种，需要使用 ThreadLocal
+
+> **ThreadLocal概述**
+>
+> ThreadLocal的主要作用是为每个使用它的线程提供一个独立的变量副本，使每个线程都可以操作自己的变量，而不会互相干扰，其用法如下图所示。
+>
+> ![image-20240720092642590](images/README.assets/image-20240720092642590.png)
+
+创建线程工具类
+
+```java
+public class LoginUserHolder {
+    public static ThreadLocal<LoginUser> threadLocal = new ThreadLocal<>();
+
+    public static void setLoginUser(LoginUser loginUser) {
+        threadLocal.set(loginUser);
+    }
+
+    public static LoginUser getLoginUser() {
+        return threadLocal.get();
+    }
+
+    public static void clear() {
+        threadLocal.remove();
+    }
+}
+```
+
+LocalThread处理的对象
+
+```java
+@Data
+@AllArgsConstructor
+public class LoginUser {
+
+    private Long userId;
+    private String username;
+}
+```
+
+修改`AuthenticationInterceptor`拦截器
+
+```java
+@Component
+public class AuthenticationInterceptor implements HandlerInterceptor {
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String token = request.getHeader("access-token");
+
+        Claims claims = JwtUtil.parseToken(token);
+        Long userId = claims.get("UserId", Long.class);
+        String username = claims.get("username", String.class);
+
+        LoginUserHolder.setLoginUser(new LoginUser(userId,username));
+
+        return  true;
+
+    }
+
+    /**
+     * 清除线程信息，避免内存泄露
+     * @param request
+     * @param response
+     * @param handler
+     * @param ex
+     * @throws Exception
+     */
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        LoginUserHolder.clear();
+    }
+}
+```
+
+* 注意，请注意，虽然 `ThreadLocal` 很有用，但它也可能导致内存泄漏，特别是在使用线程池时。因为 `ThreadLocal` 变量是与线程关联的，所以如果线程被重用（如在线程池中），而 `ThreadLocal` 变量未被清除，那么这些变量就会一直存在，占用内存。因此，在使用完 `ThreadLocal` 变量后，应该总是调用 `remove()` 方法来清除它。，spingmvc就是使用线程池.
+
