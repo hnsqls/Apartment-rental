@@ -3925,4 +3925,240 @@ public class PaymentTypeController {
 }
 ```
 
-### 
+### 房间信息
+
+接口
+
+```java
+@Tag(name = "房间信息")
+@RestController
+@RequestMapping("/app/room")
+public class RoomController {
+
+    @Operation(summary = "分页查询房间列表")
+    @GetMapping("pageItem")
+    public Result<IPage<RoomItemVo>> pageItem(@RequestParam long current, @RequestParam long size, RoomQueryVo queryVo) {
+        return Result.ok();
+    }
+
+    @Operation(summary = "根据id获取房间的详细信息")
+    @GetMapping("getDetailById")
+    public Result<RoomDetailVo> getDetailById(@RequestParam Long id) {
+        return Result.ok();
+    }
+
+    @Operation(summary = "根据公寓id分页查询房间列表")
+    @GetMapping("pageItemByApartmentId")
+    public Result<IPage<RoomItemVo>> pageItemByApartmentId(@RequestParam long current, @RequestParam long size, @RequestParam Long id) {
+        return Result.ok();
+    }
+}
+```
+
+
+
+####  1. 根据条件分页查询房间信息
+
+* 请求数据结构
+
+  - `current`和`size`为分页相关参数，分别表示**当前所处页面**和**每个页面的记录数**。
+
+  - `RoomQueryVo`为房间的查询条件，详细结构如下：
+
+    ```java
+    @Data
+    @Schema(description = "房间查询实体")
+    public class RoomQueryVo {
+    
+        @Schema(description = "省份Id")
+        private Long provinceId;
+    
+        @Schema(description = "城市Id")
+        private Long cityId;
+    
+        @Schema(description = "区域Id")
+        private Long districtId;
+    
+        @Schema(description = "最小租金")
+        private BigDecimal minRent;
+    
+        @Schema(description = "最大租金")
+        private BigDecimal maxRent;
+    
+        @Schema(description = "支付方式")
+        private Long paymentTypeId;
+    
+        @Schema(description = "价格排序方式", allowableValues = {"desc", "asc"})
+        private String orderType;
+    
+    }
+    ```
+
+  
+
+*  响应数据结构
+  
+  ```java
+  @Schema(description = "APP房间列表实体")
+  @Data
+  public class RoomItemVo {
+  
+      @Schema(description = "房间id")
+      private Long id;
+  
+      @Schema(description = "房间号")
+      private String roomNumber;
+  
+      @Schema(description = "租金（元/月）")
+      private BigDecimal rent;
+  
+      @Schema(description = "房间图片列表")
+      private List<GraphVo> graphVoList;
+  
+      @Schema(description = "房间标签列表")
+      private List<LabelInfo> labelInfoList;
+  
+      @Schema(description = "房间所属公寓信息")
+      private ApartmentInfo apartmentInfo;
+  }
+  ```
+
+需要注意特殊类型需要自定义映射，而且是分页要使用嵌套查询而不能使用连接查询。
+
+* controller
+
+  ```java
+      @Autowired
+      private RoomInfoService roomInfoService;
+      @Operation(summary = "分页查询房间列表")
+      @GetMapping("pageItem")
+      public Result<IPage<RoomItemVo>> pageItem(@RequestParam long current, @RequestParam long size, RoomQueryVo queryVo) {
+  
+          Page<RoomItemVo> page = new Page<>(current,size);
+          IPage<RoomItemVo> result = roomInfoService.pageItem(page,queryVo);
+  
+          return Result.ok(result);
+      }
+  ```
+
+* service
+
+  ```java
+  @Service
+  @Slf4j
+  public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
+          implements RoomInfoService {
+  
+      @Autowired
+      private RoomInfoMapper roomInfoMapper;
+      @Override
+      public IPage<RoomItemVo> pageItem(Page<RoomItemVo> page, RoomQueryVo queryVo) {
+  
+          return  roomInfoMapper.pageItem(page,queryVo);
+      }
+  }
+  ```
+
+* mapper
+
+  ```xml
+  <mapper namespace="com.ls.lease.web.app.mapper.RoomInfoMapper">
+  
+  
+      <resultMap id="RoomItemVoMap" type="com.ls.lease.web.app.vo.room.RoomItemVo" autoMapping="true">
+          <id property="id" column="id"/>
+          <association property="apartmentInfo" javaType="com.ls.lease.model.entity.ApartmentInfo" autoMapping="true">
+              <id property="id" column="apartment_id"/>
+  
+          </association>
+  
+          <collection property="graphVoList" ofType="com.ls.lease.web.app.vo.graph.GraphVo"
+                      select="selectGraphListByRoomId" column="id"/>
+  
+          <collection property="labelInfoList" ofType="com.ls.lease.model.entity.LabelInfo"
+                      select="selectLabelListByRoomId" column="id"/>
+  
+      </resultMap>
+      <select id="pageItem" resultMap="RoomItemVoMap">
+          select ri.id,
+                 ri.room_number,
+                 ri.rent,
+                 ai.id apartment_id,
+                 ai.name,
+                 ai.introduction,
+                 ai.district_id,
+                 ai.district_name,
+                 ai.city_id,
+                 ai.city_name,
+                 ai.province_id,
+                 ai.province_name,
+                 ai.address_detail,
+                 ai.latitude,
+                 ai.longitude,
+                 ai.phone,
+                 ai.is_release
+          from room_info ri
+                   left join apartment_info ai
+                             on ri.apartment_id = ai.id and ai.is_deleted = 0
+          <where>
+              ri.is_deleted = 0
+              and ri.is_release = 1
+              and ri.id not in (select room_id
+                                  from lease_agreement
+                                  where is_deleted = 0
+                                  and status in (2, 5))
+              <if test="queryVo.provinceId != null">
+                  and ai.province_id = #{queryVo.provinceId}
+              </if>
+              <if test="queryVo.cityId != null">
+                  and ai.city_id = #{queryVo.cityId}
+              </if>
+              <if test="queryVo.districtId != null">
+                  and ai.district_id = #{queryVo.districtId}
+              </if>
+              <if test="queryVo.minRent != null and queryVo.maxRent != null">
+                  and (ri.rent &gt;= #{queryVo.minRent} and ri.rent &lt;= #{queryVo.maxRent})
+              </if>
+              <if test="queryVo.paymentTypeId != null">
+                  and ri.id in (
+                  select
+                  room_id
+                  from room_payment_type
+                  where is_deleted = 0
+                  and payment_type_id = #{queryVo.paymentTypeId}
+                  )
+              </if>
+          </where>
+          <if test="queryVo.orderType == 'desc' or queryVo.orderType == 'asc'">
+              order by ri.rent ${queryVo.orderType}
+          </if>
+      </select>
+  
+      <select id="selectGraphListByRoomId" resultType="com.ls.lease.web.app.vo.graph.GraphVo">
+          select name,
+                 url
+          from graph_info
+          where is_deleted = 0
+            and graph_info.item_id = #{id}
+            and graph_info.item_type = 2
+      </select>
+  
+      <select id="selectLabelListByRoomId" resultType="com.ls.lease.model.entity.LabelInfo">
+          select id,
+                 type,
+                 name
+          from label_info
+          where is_deleted = 0
+            and type = 2
+            and id in (select label_id
+                       from room_label
+                       where is_deleted = 0
+                         and room_id = #{id})
+      </select>
+  </mapper>
+  ```
+
+  **Mybatis-Plus分页插件注意事项**
+
+  使用Mybatis-Plus的分页插件进行分页查询时，如果结果需要使用`<collection>`进行映射，只能使用**[嵌套查询（Nested Select for Collection）](https://mybatis.org/mybatis-3/sqlmap-xml.html#nested-select-for-collection)**，而不能使用**[嵌套结果映射（Nested Results for Collection）](https://mybatis.org/mybatis-3/sqlmap-xml.html#nested-results-for-collection)**。
+

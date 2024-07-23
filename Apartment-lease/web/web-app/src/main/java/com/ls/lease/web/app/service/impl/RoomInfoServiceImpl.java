@@ -1,10 +1,15 @@
 package com.ls.lease.web.app.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.model.entity.RoomInfo;
 import com.ls.lease.web.app.mapper.RoomInfoMapper;
 import com.ls.lease.web.app.service.RoomInfoService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ls.lease.web.app.vo.room.RoomItemVo;
+import com.ls.lease.web.app.vo.room.RoomQueryVo;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,6 +22,13 @@ import org.springframework.stereotype.Service;
 public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
         implements RoomInfoService {
 
+    @Autowired
+    private RoomInfoMapper roomInfoMapper;
+    @Override
+    public IPage<RoomItemVo> pageItem(Page<RoomItemVo> page, RoomQueryVo queryVo) {
+
+        return  roomInfoMapper.pageItem(page,queryVo);
+    }
 }
 
 
