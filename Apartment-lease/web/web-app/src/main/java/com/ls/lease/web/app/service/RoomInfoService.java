@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.model.entity.RoomInfo;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.ls.lease.web.app.vo.room.RoomDetailVo;
 import com.ls.lease.web.app.vo.room.RoomItemVo;
 import com.ls.lease.web.app.vo.room.RoomQueryVo;
 
@@ -14,4 +15,6 @@ import com.ls.lease.web.app.vo.room.RoomQueryVo;
 */
 public interface RoomInfoService extends IService<RoomInfo> {
     IPage<RoomItemVo> pageItem(Page<RoomItemVo> page, RoomQueryVo queryVo);
+
+    RoomDetailVo getDetailById(Long id);
 }

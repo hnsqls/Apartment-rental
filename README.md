@@ -4162,3 +4162,60 @@ public class RoomController {
 
   使用Mybatis-Plus的分页插件进行分页查询时，如果结果需要使用`<collection>`进行映射，只能使用**[嵌套查询（Nested Select for Collection）](https://mybatis.org/mybatis-3/sqlmap-xml.html#nested-select-for-collection)**，而不能使用**[嵌套结果映射（Nested Results for Collection）](https://mybatis.org/mybatis-3/sqlmap-xml.html#nested-results-for-collection)**。
 
+
+
+#### 2. 根据id查询房间信息
+
+* 请求数据结构
+
+  Long  id
+
+* 响应数据结构
+
+  在RoomInfo的基础上增加了
+
+  ```java
+  @Data
+  @Schema(description = "APP房间详情")
+  public class RoomDetailVo extends RoomInfo {
+  
+      @Schema(description = "所属公寓信息")
+      private ApartmentItemVo apartmentItemVo;
+  
+      @Schema(description = "图片列表")
+      private List<GraphVo> graphVoList;
+  
+      @Schema(description = "属性信息列表")
+      private List<AttrValueVo> attrValueVoList;
+  
+      @Schema(description = "配套信息列表")
+      private List<FacilityInfo> facilityInfoList;
+  
+      @Schema(description = "标签信息列表")
+      private List<LabelInfo> labelInfoList;
+  
+      @Schema(description = "支付方式列表")
+      private List<PaymentType> paymentTypeList;
+  
+      @Schema(description = "杂费列表")
+      private List<FeeValueVo> feeValueVoList;
+  
+      @Schema(description = "租期列表")
+      private List<LeaseTerm> leaseTermList;
+  
+  }
+  ```
+
+* 思路
+
+  由于只是差寻到一个结果，可以用通用方法，查询需要的信息，然后再封装成想要的对象。
+
+  问题想简单了，发现返回结果中有自定义vo，使用通用方法不能够满足需求，就自定义sql'
+
+* controller
+
+  ```java
+  
+  ```
+
+  

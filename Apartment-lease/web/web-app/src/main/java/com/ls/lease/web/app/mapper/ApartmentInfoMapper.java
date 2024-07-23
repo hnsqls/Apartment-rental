@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 */
 public interface ApartmentInfoMapper extends BaseMapper<ApartmentInfo> {
 
+
 }
 
 
