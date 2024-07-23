@@ -3855,3 +3855,74 @@ public class MinioConfiguration {
 
   
 
+## 找房管理
+
+### 地区接口
+
+查询全部省，根据省id查询市，根据市id查询区
+
+```java
+
+@Tag(name = "地区信息")
+@RestController
+@RequestMapping("/app/region")
+public class RegionController {
+    
+    @Autowired
+    private ProvinceInfoService provinceInfoService;
+    
+    @Autowired
+    private CityInfoService cityInfoService;
+    @Autowired
+    private DistrictInfoService districtInfoService;
+
+    @Operation(summary = "查询省份信息列表")
+    @GetMapping("province/list")
+    public Result<List<ProvinceInfo>> listProvince() {
+        List<ProvinceInfo> list = provinceInfoService.list();
+        return Result.ok(list);
+    }
+
+    @Operation(summary = "根据省份id查询城市信息列表")
+    @GetMapping("city/listByProvinceId")
+    public Result<List<CityInfo>> listCityInfoByProvinceId(@RequestParam Long id) {
+        
+        LambdaQueryWrapper<CityInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(CityInfo::getProvinceId,id);
+        List<CityInfo> list = cityInfoService.list(queryWrapper);
+
+        return Result.ok(list);
+    }
+
+    @GetMapping("district/listByCityId")
+    @Operation(summary = "根据城市id查询区县信息")
+    public Result<List<DistrictInfo>> listDistrictInfoByCityId(@RequestParam Long id) {
+
+        LambdaQueryWrapper<DistrictInfo> queryWrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<DistrictInfo> eq = queryWrapper.eq(DistrictInfo::getCityId, id);
+        List<DistrictInfo> list = districtInfoService.list(queryWrapper);
+        return Result.ok(list);
+    }
+}
+```
+
+### 支付方式
+
+```java
+@Tag(name = "支付方式接口")
+@RestController
+@RequestMapping("/app/payment")
+public class PaymentTypeController {
+
+    @Autowired
+    private PaymentTypeService paymentTypeService;
+    @Operation(summary = "获取全部支付方式列表")
+    @GetMapping("list")
+    public Result<List<PaymentType>> list() {
+        List<PaymentType> list = paymentTypeService.list();
+        return Result.ok(list);
+    }
+}
+```
+
+### 
