@@ -41,6 +41,7 @@ public class LoginServiceImpl implements LoginService {
         //获取验证码
         SpecCaptcha specCaptcha = new SpecCaptcha(130, 48, 4);
 
+
         // 获取验证码得值，转小写，忽略大小写不同
         String code = specCaptcha.text().toLowerCase();
 
@@ -54,7 +55,6 @@ public class LoginServiceImpl implements LoginService {
         //统一管理
 //        redisTemplate.opsForValue().set(key,code,60, TimeUnit.SECONDS);
         redisTemplate.opsForValue().set(key,code,RedisConstant.ADMIN_LOGIN_CAPTCHA_TTL_SEC, TimeUnit.SECONDS);
-
 
 
         //图片转为字符传   base64编码

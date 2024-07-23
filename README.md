@@ -3487,3 +3487,371 @@ public class MinioConfiguration {
 ```
 
 启动成功
+
+## 登录管理
+
+### 登录流程
+
+移动端的具体登录流程如下图所示
+
+![image-20240720115232435](images/README.assets/image-20240720115232435.png)
+
+根据上述登录流程，可分析出，登录管理共需三个接口，分别是**获取短信验证码**、**登录**、**查询登录用户的个人信息**。除此之外，同样需要编写`HandlerInterceptor`来为所有受保护的接口增加验证JWT的逻辑。
+
+### 登录接口开发
+
+#### 1. 获取短信验证码
+
+*  阿里云短信服务[短信服务 (aliyun.com)](https://dysms.console.aliyun.com/quickstart)
+* **创建AccessKey**
+  * 云账号 AccessKey 是访问阿里云 API 的密钥，没有AccessKey无法调用短信服务。点击页面右上角的头像，选择**AccessKey管理**，然后**创建AccessKey**。
+  * ![image-20240720133311558](images/README.assets/image-20240720133311558.png)
+
+
+
+* **配置所需依赖**
+
+  如需调用阿里云的短信服务，需使用其提供的SDK，具体可参考[官方文档](https://next.api.aliyun.com/api-tools/sdk/Dysmsapi?spm=a2c4g.215759.0.0.43e6807dDRAZVz&version=2017-05-25&language=java-tea&tab=primer-doc#doc-summary)。
+
+  在**common模块**的pom.xml文件中增加如下内容
+
+  ```xml
+  <dependency>
+      <groupId>com.aliyun</groupId>
+      <artifactId>dysmsapi20170525</artifactId>
+  </dependency>
+  ```
+
+* **配置发送短信客户端**
+
+  - 在`application.yml`中增加如下内容
+
+    ```yaml
+    aliyun:
+      sms:
+        access-key-id: <access-key-id>
+        access-key-secret: <access-key-secret>
+        endpoint: dysmsapi.aliyuncs.com
+    ```
+
+  - 创建配置类
+
+    在**common模块**中创建`com.ls.lease.common.sms.AliyunSMSProperties`类，内容如下
+
+    ```java
+    @Data
+    @ConfigurationProperties(prefix = "aliyun.sms")
+    public class AliyunSMSProperties {
+    
+        private String accessKeyId;
+    
+        private String accessKeySecret;
+    
+        private String endpoint;
+    }
+    ```
+
+    在**common模块**中创建`com.ls.lease.common.sms.AliyunSmsConfiguration`类，内容如下
+
+    ```java
+    @Configuration
+    @EnableConfigurationProperties(AliyunSMSProperties.class)
+    @ConditionalOnProperty(name = "aliyun.sms.endpoint")
+    public class AliyunSMSConfiguration {
+    
+        @Autowired
+        private AliyunSMSProperties properties;
+    
+        @Bean
+        public Client smsClient() {
+            Config config = new Config();
+            config.setAccessKeyId(properties.getAccessKeyId());
+            config.setAccessKeySecret(properties.getAccessKeySecret());
+            config.setEndpoint(properties.getEndpoint());
+            try {
+                return new Client(config);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+    ```
+
+  - 使用短信服务，
+
+    ```java
+    public interface SmsService {
+        void sendCode(String phone, String code);
+    }
+    
+    @Service
+    public class SmsServiceImpl implements SmsService {
+        @Autowired
+        private Client client;
+    
+        @Override
+        public void sendCode(String phone, String code) {
+            SendSmsRequest request = new SendSmsRequest();
+            request.setSignName("阿里云短信测试")
+                    .setTemplateCode("SMS_154950909")
+                    .setTemplateParam("{\"code\":\"" + code + "\"}")
+                    .setPhoneNumbers(phone);
+            try {
+                client.sendSms(request);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+    ```
+
+  - 编写获取短信验证码的逻辑
+
+  - controller
+
+    ```java
+    @Tag(name = "登录管理")
+    @RestController
+    @RequestMapping("/app/")
+    public class LoginController {
+        
+        @Autowired
+        private  LoginService loginService;
+        @GetMapping("login/getCode")
+        @Operation(summary = "获取短信验证码")
+        public Result getCode(@RequestParam String phone) {
+            loginService.getCode(phone);
+            return Result.ok();
+        }
+    ```
+
+  - service
+
+    ```java
+    public interface LoginService {
+        void getCode(String phone);
+    }
+    
+    ```
+
+  - 定一个工具类，用于生成验证码数字
+
+    ```java
+    public class CodeUtil {
+    
+        public static  String getRandomCode(Integer length){
+            StringBuilder builder = new StringBuilder();
+            Random random = new Random();
+            for (int i = 0 ; i < length; i ++){
+                int num = random.nextInt(10);
+                builder.append(num);
+            }
+            return builder.toString();
+        }
+    }
+    
+    ```
+
+  - serviceimp
+
+    ```java
+    @Service
+    public class LoginServiceImpl implements LoginService {
+    
+        @Autowired
+        private SmsService smsService;
+    
+        @Autowired
+        private StringRedisTemplate redisTemplate;
+        @Override
+        public void getCode(String phone) {
+            //使用生成随机数的工具类生成验证码
+            String code = CodeUtil.getRandomCode(6);
+            String key = RedisConstant.APP_LOGIN_PREFIX+phone;
+    
+            //限制频繁发送，在发送之前看看，是不是一分钟之内发过验证码了
+            Boolean aBoolean = redisTemplate.hasKey(key);
+            if (aBoolean){
+                Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+                if (RedisConstant.APP_LOGIN_CODE_TTL_SEC-ttl< RedisConstant.APP_LOGIN_CODE_RESEND_TIME_SEC){
+                    throw  new LeaseException(ResultCodeEnum.APP_SEND_SMS_TOO_OFTEN);
+                }
+            }
+            //使用sms服务发送目标手机号，验证码
+            smsService.sendCode(phone,code);
+    
+            //将手机号和验证码加入到redis，并设置过期时间
+    
+            redisTemplate.opsForValue().set(key,code,RedisConstant.APP_LOGIN_CODE_TTL_SEC, TimeUnit.SECONDS);
+    
+        }
+    }
+    ```
+
+#### 2.登录和注册
+
+* 业务流程
+  * 前端发送手机号码`phone`和接收到的短信验证码`code`到后端。
+  * 首先校验`phone`和`code`是否为空，若为空，直接响应`手机号码为空`或者`验证码为空`，若不为空则进入下步判断。
+  * 根据`phone`从Redis中查询之前保存的验证码，若查询结果为空，则直接响应`验证码已过期` ，若不为空则进入下一步判断。
+  * 比较前端发送的验证码和从Redis中查询出的验证码，若不同，则直接响应`验证码错误`，若相同则进入下一步判断。
+  * 使用`phone`从数据库中查询用户信息，若查询结果为空，则创建新用户，并将用户保存至数据库，然后进入下一步判断。
+  * 判断用户是否被禁用，若被禁，则直接响应`账号被禁用`，否则进入下一步。
+  * 创建JWT并响应给前端。
+  
+* controller
+
+  ```java
+      @PostMapping("login")
+      @Operation(summary = "登录")
+      public Result<String> login(@RequestBody LoginVo loginVo) {
+          String result =  loginService.login(loginVo);
+          return Result.ok(result);
+      }
+  ```
+
+* service
+
+  ```java
+      @Override
+      public String login(LoginVo loginVo) {
+          //手机号为空
+          if (loginVo.getPhone() == null){
+              throw new LeaseException(ResultCodeEnum.APP_LOGIN_PHONE_EMPTY);
+          }
+          //验证码为空
+          if (loginVo.getCode() ==null){
+              throw  new LeaseException(ResultCodeEnum.APP_LOGIN_CODE_EMPTY);
+          }
+          // 验证码超市
+          String key = RedisConstant.APP_LOGIN_PREFIX + loginVo.getPhone();
+          String code = redisTemplate.opsForValue().get(key);
+          if (code ==null){
+              throw new LeaseException(ResultCodeEnum.APP_LOGIN_CODE_EXPIRED);
+          }
+          //验证码错误
+          if (!code.equals(loginVo.getCode())){
+              throw new LeaseException(ResultCodeEnum.APP_LOGIN_CODE_ERROR);
+          }
+  
+          //查看数据库有没有该用户，没有就先注册，如果有账户就查询是不是被禁用
+          LambdaQueryWrapper<UserInfo> userInfoQueryWrapper = new LambdaQueryWrapper<>();
+          userInfoQueryWrapper.eq(UserInfo::getPhone,loginVo.getPhone());
+          UserInfo userInfo = userInfoMapper.selectOne(userInfoQueryWrapper);
+          if (userInfo ==null){
+           //注册
+              userInfo = new UserInfo();
+              userInfo.setPhone(loginVo.getPhone());
+              userInfo.setStatus(BaseStatus.ENABLE);
+              userInfo.setNickname("用户"+loginVo.getPhone().substring(7));
+              userInfoMapper.insert(userInfo);
+  
+          }else {
+              //判断是否被禁用
+              if (userInfo.getStatus() == BaseStatus.DISABLE){
+                  throw  new LeaseException(ResultCodeEnum.APP_ACCOUNT_DISABLED_ERROR);
+              }
+          }
+          //登录成功返回jwt 。
+  
+          return JwtUtil.createToken(userInfo.getId(),userInfo.getPhone());
+      }
+  ```
+
+* 创建拦截器，统一校验token
+
+  ```java
+  @Component
+  
+  public class AuthenticationInterceptor implements HandlerInterceptor {
+  
+      @Override
+      public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+          String token = request.getHeader("access-token");
+  
+          Claims claims = JwtUtil.parseToken(token);
+          Long userId = claims.get("userId", Long.class);
+          String username = claims.get("username", String.class);
+          LoginUserHolder.setLoginUser(new LoginUser(userId, username));
+  
+          return true;
+      }
+  
+      @Override
+      public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+          LoginUserHolder.clear();
+      }
+  }
+  ```
+
+  添加拦截器
+
+  ```java
+  @Configuration
+  public class WebMvcConfiguration implements WebMvcConfigurer {
+  
+      @Autowired
+      private AuthenticationInterceptor authenticationInterceptor;
+  
+      @Override
+      public void addInterceptors(InterceptorRegistry registry) {
+          registry.addInterceptor(this.authenticationInterceptor).addPathPatterns("/app/**").excludePathPatterns("/app/login/**");
+      }
+  }
+  ```
+
+
+
+
+
+#### 3.获取登录用户信息
+
+* 查看请求数据结构
+
+  没有参数请求，是在token中获取
+
+* 查看响应数据结构
+
+  ```java
+  @Schema(description = "用户基本信息")
+  @Data
+  @AllArgsConstructor
+  public class UserInfoVo {
+  
+      @Schema(description = "用户昵称")
+      private String nickname;
+  
+      @Schema(description = "用户头像")
+      private String avatarUrl;
+  }
+  ```
+  
+* 我们之前创建了LocalThread,将校验token的数据，放在了线程中，我们只需要从LocalThread获取用户id即可
+
+* controller
+
+  ```java
+     @GetMapping("info")
+      @Operation(summary = "获取登录用户信息")
+      public Result<UserInfoVo> info() {
+          UserInfoVo result =  loginService.getUserById();
+          return Result.ok(result);
+      }
+  ```
+
+* service
+
+  ```java
+   /**
+       * 获取用户基本信息
+       */
+      @Override
+      public UserInfoVo getUserById() {
+          LoginUser loginUser = LoginUserHolder.getLoginUser();
+          UserInfo userInfo = userInfoMapper.selectById(loginUser.getUserId());
+          return  new UserInfoVo(userInfo.getNickname(),userInfo.getAvatarUrl());
+      }
+  ```
+
+  
+
