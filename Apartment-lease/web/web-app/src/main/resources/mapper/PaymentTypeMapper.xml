@@ -16,4 +16,15 @@
                      where is_deleted = 0
                        and room_id = #{id})
     </select>
+    <select id="listByRoomId" resultType="com.ls.lease.model.entity.PaymentType">
+        select id,
+               name
+        from payment_type
+        where is_deleted = 0
+          and id in (select payment_type_id
+                     from room_payment_type
+                     where is_deleted = 0
+                       and room_id = #{id})
+
+    </select>
 </mapper>

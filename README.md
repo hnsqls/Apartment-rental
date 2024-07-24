@@ -4819,5 +4819,58 @@ public class BrowsingHistoryController {
 
 #### 5 根据房间ID获取可选支付方式
 
+在`PaymentTypeController`中增加如下内容
+
+* controller
+
+```java
+    @Operation(summary = "根据房间id获取可选支付方式列表")
+    @GetMapping("listByRoomId")
+    public Result<List<PaymentType>> list(@RequestParam Long id) {
+        List<PaymentType> result =  paymentTypeService.listByRoomId(id);
+
+        return Result.ok(result);
+    }
+```
+
+* service
+
+  ```java
+      /**
+       * 根据房间id查询付款方式
+       * @param id
+       * @return
+       */
+      List<PaymentType> listByRoomId(Long id);
+  
+   /**
+       * 根据房间id查询付款方式的名字
+       * @param id
+       * @return
+       */
+      @Override
+      public List<PaymentType> listByRoomId(Long id) {
+          return paymentTypeMapper.listByRoomId(id);
+      }
+  ```
+
+* mapper
+
+  ```xml
+      <select id="listByRoomId" resultType="com.ls.lease.model.entity.PaymentType">
+          select id,
+                 name
+          from payment_type
+          where is_deleted = 0
+            and id in (select payment_type_id
+                       from room_payment_type
+                       where is_deleted = 0
+                         and room_id = #{id})
+  
+      </select>
+  ```
+
+  
+
 #### 6.根据房间ID获取可选租期
 
