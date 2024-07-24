@@ -49,7 +49,7 @@ public class JwtUtil {
      * 因为配置了拦截器，校验token，测试不方便，所以生成一个长期的token方便接口测试，
      */
     public static void main(String[] args) {
-        System.out.println(createToken(8L,"user"));
+        System.out.println(createToken(7L,"user"));
     }
 
 }

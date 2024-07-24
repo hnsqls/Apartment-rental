@@ -4214,8 +4214,300 @@ public class RoomController {
 
 * controller
 
-  ```java
   
+  
+
+#### 3 .根据公寓id分页查询房间列表
+
+* 查看请求数据结构
+
+  分页信息，和公寓id
+
+* 响应数据结构
+
+  ```java
+  @Schema(description = "APP房间列表实体")
+  @Data
+  public class RoomItemVo {
+  
+      @Schema(description = "房间id")
+      private Long id;
+  
+      @Schema(description = "房间号")
+      private String roomNumber;
+  
+      @Schema(description = "租金（元/月）")
+      private BigDecimal rent;
+  
+      @Schema(description = "房间图片列表")
+      private List<GraphVo> graphVoList;
+  
+      @Schema(description = "房间标签列表")
+      private List<LabelInfo> labelInfoList;
+  
+      @Schema(description = "房间所属公寓信息")
+      private ApartmentInfo apartmentInfo;
+  
+  }
+  ```
+
+* controller
+
+  ```java
+      @Operation(summary = "根据公寓id分页查询房间列表")
+      @GetMapping("pageItemByApartmentId")
+      public Result<IPage<RoomItemVo>> pageItemByApartmentId(@RequestParam long current, @RequestParam long size, @RequestParam Long id) {
+          Page<RoomItemVo> page = new Page<>(current,size);
+          IPage<RoomItemVo> result = roomInfoService.pageItemByApartmentId(page,id);
+          return Result.ok(result);
+      }
+  ```
+
+* service
+
+  ```java
+      IPage<RoomItemVo> pageItemByApartmentId(Page<RoomItemVo> page, Long id);
+      @Override
+      public IPage<RoomItemVo> pageItemByApartmentId(Page<RoomItemVo> page, Long id) {
+          return roomInfoMapper.pageItemByApartmentId(page,id);
+      }
+  ```
+
+* mapper
+
+  ```java
+      IPage<RoomItemVo> pageItemByApartmentId(Page<RoomItemVo> page, Long id);
+  ```
+
+  ```xml
+   <select id="pageItemByApartmentId" resultMap="RoomItemVoMap">
+          select ri.id,
+                 ri.room_number,
+                 ri.rent,
+                 ai.id apartment_id,
+                 ai.name,
+                 ai.introduction,
+                 ai.district_id,
+                 ai.district_name,
+                 ai.city_id,
+                 ai.city_name,
+                 ai.province_id,
+                 ai.province_name,
+                 ai.address_detail,
+                 ai.latitude,
+                 ai.longitude,
+                 ai.phone,
+                 ai.is_release
+          from room_info ri
+                   left join apartment_info ai
+                             on ri.apartment_id = ai.id and ai.is_deleted = 0
+          where ri.apartment_id = #{id}
+            and ri.is_deleted = 0
+            and ri.is_release = 1
+            and ri.id not in (select room_id
+                              from lease_agreement
+                              where is_deleted = 0
+                                and status in (2, 5))
+  
+  
+      </select>
+  
+      <resultMap id="RoomItemVoMap" type="com.ls.lease.web.app.vo.room.RoomItemVo" autoMapping="true">
+          <id property="id" column="id"/>
+          <association property="apartmentInfo" javaType="com.ls.lease.model.entity.ApartmentInfo" autoMapping="true">
+              <id property="id" column="apartment_id"/>
+  
+          </association>
+  
+          <collection property="graphVoList" ofType="com.ls.lease.web.app.vo.graph.GraphVo"
+                      select="selectGraphListByRoomId" column="id"/>
+  
+          <collection property="labelInfoList" ofType="com.ls.lease.model.entity.LabelInfo"
+                      select="selectLabelListByRoomId" column="id"/>
+  
+      </resultMap>
+  
+      <select id="selectGraphListByRoomId" resultType="com.ls.lease.web.app.vo.graph.GraphVo">
+          select name,
+                 url
+          from graph_info
+          where is_deleted = 0
+            and graph_info.item_id = #{id}
+            and graph_info.item_type = 2
+      </select>
+  <select id="selectLabelListByRoomId" resultType="com.ls.lease.model.entity.LabelInfo">
+          select id,
+                 type,
+                 name
+          from label_info
+          where is_deleted = 0
+            and type = 2
+            and id in (select label_id
+                       from room_label
+                       where is_deleted = 0
+                         and room_id = #{id})
+      </select>
   ```
 
   
+
+## 个人中心
+
+### 历史记录管理
+
+### 1.获取历史浏览记录
+
+接口
+
+```java
+@RestController
+@Tag(name = "浏览历史管理")
+@RequestMapping("/app/history")
+public class BrowsingHistoryController {
+
+    @Operation(summary = "获取浏览历史")
+    @GetMapping("pageItem")
+    private Result<IPage<HistoryItemVo>> page(@RequestParam long current, @RequestParam long size) {
+        return Result.ok();
+    }
+}
+```
+
+
+
+分页获取历史记录
+
+* 查看请求数据结构
+
+  分页信息，起始还有token的用户信息（用户id）
+
+* 查看响应数据结构
+
+  ```java
+  @Data
+  @Schema(description = "浏览历史基本信息")
+  public class HistoryItemVo extends BrowsingHistory {
+  
+      @Schema(description = "房间号")
+      private String roomNumber;
+  
+      @Schema(description = "租金")
+      private BigDecimal rent;
+  
+      @Schema(description = "房间图片列表")
+      private List<GraphVo> roomGraphVoList;
+  
+      @Schema(description = "公寓名称")
+      private String apartmentName;
+  
+      @Schema(description = "省份名称")
+      private String provinceName;
+  
+      @Schema(description = "城市名称")
+      private String cityName;
+  
+      @Schema(description = "区县名称")
+      private String districtName;
+  
+  }
+  
+  @TableName(value = "browsing_history")
+  @Data
+  @AllArgsConstructor
+  @NoArgsConstructor
+  public class BrowsingHistory extends BaseEntity {
+  
+      private static final long serialVersionUID = 1L;
+  
+      @Schema(description = "用户id")
+      @TableField("user_id")
+      private Long userId;
+  
+      @Schema(description = "房间id")
+      @TableField("room_id")
+      private Long roomId;
+  
+      @Schema(description = "浏览时间")
+      @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+      @TableField("browse_time")
+      private Date browseTime;
+  
+  }
+  ```
+
+* controller
+
+  ```java
+      @Operation(summary = "获取浏览历史")
+      @GetMapping("pageItem")
+      private Result<IPage<HistoryItemVo>> page(@RequestParam long current, @RequestParam long size) {
+          Page<HistoryItemVo> page = new Page<>(current, size);
+          Long id = LoginUserHolder.getLoginUser().getUserId();
+          IPage<HistoryItemVo> result = browsingHistoryService.pageItem(page,id);
+          return Result.ok(result);
+      }
+  ```
+
+* service
+
+  ```java
+  IPage<HistoryItemVo> pageItem(Page<HistoryItemVo> page, Long id);
+  
+  @Service
+  public class BrowsingHistoryServiceImpl extends ServiceImpl<BrowsingHistoryMapper, BrowsingHistory>
+          implements BrowsingHistoryService {
+  
+      @Autowired
+      private BrowsingHistoryMapper browsingHistoryMapper;
+      @Override
+      public IPage<HistoryItemVo> pageItem(Page<HistoryItemVo> page, Long id) {
+          return browsingHistoryMapper.pageItem(page,id);
+      }
+  }
+  ```
+
+* mapper
+
+  ```xml
+   <resultMap id="HistoryItemVoMap" type="com.ls.lease.web.app.vo.history.HistoryItemVo">
+          <id property="id" column="id"/>
+          <result property="roomId" column="room_id"/>
+          <collection property="roomGraphVoList" ofType="com.ls.lease.web.app.vo.graph.GraphVo"
+                      select="selectGrophListByUserId" column="room_id" autoMapping="true">
+          </collection>
+  
+      </resultMap>
+      <select id="pageItem" resultMap="HistoryItemVoMap">
+          select bh.id,
+                 bh.user_id,
+                 bh.room_id,
+                 bh.browse_time,
+                 ri.room_number,
+                 ri.rent,
+                 ai.name apartment_name,
+                 ai.district_name,
+                 ai.city_name,
+                 ai.province_name
+          from browsing_history bh
+                   left join room_info ri
+                             on bh.room_id = ri.id and ri.is_deleted = 0
+                   left join apartment_info ai
+                             on ri.apartment_id = ai.id and ai.is_deleted = 0
+          where bh.is_deleted = 0
+            and bh.user_id = #{id}
+          order by browse_time desc
+  
+      </select>
+  
+      <select id="selectGrophListByUserId" resultType="com.ls.lease.web.app.vo.graph.GraphVo">
+          select name,
+                 url
+          from graph_info
+          where is_deleted = 0
+            and item_type = 2
+            and item_id = #{room_id}
+      </select>
+  ```
+
+  
+

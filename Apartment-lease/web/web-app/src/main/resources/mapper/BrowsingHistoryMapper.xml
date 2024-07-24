@@ -3,5 +3,42 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ls.lease.web.app.mapper.BrowsingHistoryMapper">
+    <resultMap id="HistoryItemVoMap" type="com.ls.lease.web.app.vo.history.HistoryItemVo">
+        <id property="id" column="id"/>
+        <result property="roomId" column="room_id"/>
+        <collection property="roomGraphVoList" ofType="com.ls.lease.web.app.vo.graph.GraphVo"
+                    select="selectGrophListByUserId" column="room_id" autoMapping="true">
+        </collection>
 
+    </resultMap>
+    <select id="pageItem" resultMap="HistoryItemVoMap">
+        select bh.id,
+               bh.user_id,
+               bh.room_id,
+               bh.browse_time,
+               ri.room_number,
+               ri.rent,
+               ai.name apartment_name,
+               ai.district_name,
+               ai.city_name,
+               ai.province_name
+        from browsing_history bh
+                 left join room_info ri
+                           on bh.room_id = ri.id and ri.is_deleted = 0
+                 left join apartment_info ai
+                           on ri.apartment_id = ai.id and ai.is_deleted = 0
+        where bh.is_deleted = 0
+          and bh.user_id = #{id}
+        order by browse_time desc
+
+    </select>
+
+    <select id="selectGrophListByUserId" resultType="com.ls.lease.web.app.vo.graph.GraphVo">
+        select name,
+               url
+        from graph_info
+        where is_deleted = 0
+          and item_type = 2
+          and item_id = #{room_id}
+    </select>
 </mapper>
