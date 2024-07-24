@@ -4787,3 +4787,37 @@ public class BrowsingHistoryController {
 
   
 
+#### 3. 根据id更新租约状态
+
+```java
+    @Operation(summary = "根据id更新租约状态", description = "用于确认租约和提前退租")
+    @PostMapping("updateStatusById")
+    public Result updateStatusById(@RequestParam Long id, @RequestParam LeaseStatus leaseStatus) {
+
+        LambdaUpdateWrapper<LeaseAgreement> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(LeaseAgreement::getId,id)
+                        .set(LeaseAgreement::getStatus,leaseStatus);
+
+        leaseAgreementService.update(updateWrapper);
+        return Result.ok();
+    }
+
+```
+
+#### 4.保存或更新租约。
+
+```java
+    @Operation(summary = "保存或更新租约", description = "用于续约")
+    @PostMapping("saveOrUpdate")
+    public Result saveOrUpdate(@RequestBody LeaseAgreement leaseAgreement) {
+        leaseAgreementService.saveOrUpdate(leaseAgreement);
+        return Result.ok();
+    }
+```
+
+
+
+#### 5 根据房间ID获取可选支付方式
+
+#### 6.根据房间ID获取可选租期
+
