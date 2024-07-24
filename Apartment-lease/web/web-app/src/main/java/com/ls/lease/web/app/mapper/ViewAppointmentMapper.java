@@ -14,6 +14,12 @@ import java.util.List;
 */
 public interface ViewAppointmentMapper extends BaseMapper<ViewAppointment> {
 
+    /**
+     * 根据用户id查询预约信息列表
+     * @param userId
+     * @return
+     */
+    List<AppointmentItemVo> listItem(Long userId);
 }
 
 

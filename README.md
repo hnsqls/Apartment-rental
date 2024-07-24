@@ -4509,5 +4509,281 @@ public class BrowsingHistoryController {
       </select>
   ```
 
+
+
+### 2. 保存浏览记录
+
+保存的时机，是再用户浏览了房间详情信息，保存。所以再浏览房间详情信息的实时执行。
+
+![image-20240724152057371](images/README.assets/image-20240724152057371.png)
+
+* service
+
+  ```java
+      /**
+       * 保存浏览信息
+       * @param userId
+       * @param id
+       */
+      void saveHistory(Long userId, Long id);
+   /**
+       * 保存浏览房间历史记录
+       * @param userId
+       * @param id  房间id
+       */
+      @Override
+      public void saveHistory(Long userId, Long id) {
+  //        System.out.println("保存信息------------------------------------------------------");
+          System.out.println(LoginUserHolder.getLoginUser()+"用户i想你想");
+          LambdaQueryWrapper<BrowsingHistory> queryWrapper = new LambdaQueryWrapper<>();
+          queryWrapper.eq(BrowsingHistory::getUserId,userId)
+                           .eq(BrowsingHistory::getRoomId,id);
+          BrowsingHistory browsingHistory = browsingHistoryMapper.selectOne(queryWrapper);
+          if (browsingHistory != null){
+              //数据库存在记录，就更新时间
+              browsingHistory.setBrowseTime(new Date());
+              browsingHistoryMapper.updateById(browsingHistory);
+  
+          }else {
+              //数据库不存在记录，就插入
+              BrowsingHistory browsingHistory1 = new BrowsingHistory();
+              browsingHistory1.setBrowseTime(new Date());
+              browsingHistory1.setUserId(userId);
+              browsingHistory1.setRoomId(id);
+              browsingHistoryMapper.insert(browsingHistory1);
+  
+          }
+  
+      }
+  ```
+
+* 优化，上述保存浏览信息是再，查询房间的详细信息中执行的，就是说，对于房间获得详细信息的接口来说，当结果获取后，还要等待着信息保存浏览信息才能返回。我们可以开启异步操作，只需要再springboot的启动类上@EnableAysn 和方法上@Aysnc
+
+### 预约看房
+
+### 1. 保存或更新看房预约
+
+
+
+### 2. 查询个人预约看房列表
+
+
+
+### 3. 根据ID查询预约详情信息
+
+
+
+### 租约管理
+
+#### 1.获取个人租约基本信息列表
+
+* 查看请求数据结构
+
+  ![image-20240724165411677](images/README.assets/image-20240724165411677.png)
+
+  没参数，但是我们可以再token中获得用户信息，但是token中只有userid和username
+
+  租约表里面没有userid。
+
+
+
+#### 2. 根据租约id获取详细租约信息
+
+* 请求数据结构   租约id
+
+* 响应数据结构
+
+  ```java
+  @Data
+  @Schema(description = "租约详细信息")
+  public class AgreementDetailVo extends LeaseAgreement {
+  
+      @Schema(description = "公寓名称")
+      private String apartmentName;
+  
+      @Schema(description = "公寓图片列表")
+      private List<GraphVo> apartmentGraphVoList;
+  
+      @Schema(description = "房间号")
+      private String roomNumber;
+  
+      @Schema(description = "房间图片列表")
+      private List<GraphVo> roomGraphVoList;
+  
+      @Schema(description = "支付方式")
+      private String paymentTypeName;
+  
+      @Schema(description = "租期月数")
+      private Integer leaseTermMonthCount;
+  
+      @Schema(description = "租期单位")
+      private String leaseTermUnit;
+  
+  }
+  
+  @Schema(description = "租约信息表")
+  @TableName(value = "lease_agreement")
+  @Data
+  public class LeaseAgreement extends BaseEntity {
+  
+      private static final long serialVersionUID = 1L;
+  
+      @Schema(description = "承租人手机号码")
+      @TableField(value = "phone")
+      private String phone;
+  
+      @Schema(description = "承租人姓名")
+      @TableField(value = "name")
+      private String name;
+  
+      @Schema(description = "承租人身份证号码")
+      @TableField(value = "identification_number")
+      private String identificationNumber;
+  
+      @Schema(description = "签约公寓id")
+      @TableField(value = "apartment_id")
+      private Long apartmentId;
+  
+      @Schema(description = "签约房间id")
+      @TableField(value = "room_id")
+      private Long roomId;
+  
+      @Schema(description = "租约开始日期")
+      @JsonFormat(pattern = "yyyy-MM-dd")
+      @TableField(value = "lease_start_date")
+      private Date leaseStartDate;
+  
+      @Schema(description = "租约结束日期")
+      @TableField(value = "lease_end_date")
+      @JsonFormat(pattern = "yyyy-MM-dd")
+      private Date leaseEndDate;
+  
+      @Schema(description = "租期id")
+      @TableField(value = "lease_term_id")
+      private Long leaseTermId;
+  
+      @Schema(description = "租金（元/月）")
+      @TableField(value = "rent")
+      private BigDecimal rent;
+  
+      @Schema(description = "押金（元）")
+      @TableField(value = "deposit")
+      private BigDecimal deposit;
+  
+      @Schema(description = "支付类型id")
+      @TableField(value = "payment_type_id")
+      private Long paymentTypeId;
+  
+      @Schema(description = "租约状态")
+      @TableField(value = "status")
+      private LeaseStatus status;
+  
+      @Schema(description = "租约来源")
+      @TableField(value = "source_type")
+      private LeaseSourceType sourceType;
+  
+      @Schema(description = "备注信息")
+      @TableField(value = "additional_info")
+      private String additionalInfo;
+  
+  }
+  ```
+
+* controller
+
+  ```java
+      @Operation(summary = "根据id获取租约详细信息")
+      @GetMapping("getDetailById")
+      public Result<AgreementDetailVo> getDetailById(@RequestParam Long id) {
+          AgreementDetailVo result = leaseAgreementService.getDetailLeaseAgreementById(id);
+          return Result.ok(result);
+      }
+  ```
+
+* service
+
+  ```java
+  AgreementDetailVo getDetailLeaseAgreementById(Long id);
+  
+  /**
+       * 根据租约id获取详细信息
+       * @param id
+       * @return
+       */
+      @Override
+      public AgreementDetailVo getDetailLeaseAgreementById(Long id) {
+          return leaseAgreementMapper.getDetailLeaseAgreementById(id);
+      }
+  }
+  ```
+
+* mapper
+
+  ```java
+  <resultMap id="AgreementDetailVoMap" type="com.ls.lease.web.app.vo.agreement.AgreementDetailVo" autoMapping="true">
+          <id property="id" column="id"/>
+          <result property="apartmentId" column="apartment_id"/>
+          <result property="roomId" column="room_id"/>
+          <collection property="apartmentGraphVoList" ofType="com.ls.lease.web.app.vo.graph.GraphVo"
+                      select="selectApartGVoListByTypeandId" column="apartment_id" autoMapping="true"></collection>
+          <collection property="roomGraphVoList" ofType="com.ls.lease.web.app.vo.graph.GraphVo"
+                      select="selectRoomGVoListByTypeandId" column="room_id" autoMapping="true"/>
+      </resultMap>
+      <select id="getDetailLeaseAgreementById" resultMap="AgreementDetailVoMap">
+          select la.id,
+                 la.phone,
+                 la.name,
+                 la.identification_number,
+                 la.apartment_id,
+                 la.room_id,
+                 la.lease_start_date,
+                 la.lease_end_date,
+                 la.lease_term_id,
+                 la.rent,
+                 la.deposit,
+                 la.payment_type_id,
+                 la.status,
+                 la.source_type,
+                 la.additional_info,
+                 ai.id          apartment_id,
+                 ai.name        apartment_name,
+                 ri.room_number,
+                 lt.month_count leaseTermMonthCount,
+                 lt.unit        leaseTermUnit,
+                 pt.name payment_type_name
+          from lease_agreement la
+                   left join apartment_info ai
+                             on la.apartment_id = ai.id and ai.is_deleted = 0
+                   left join room_info ri
+                             on la.room_id = ri.id and ri.is_deleted = 0
+                   left join lease_term lt
+                             on la.lease_term_id = lt.id and lt.is_deleted = 0
+                   left join payment_type pt
+          on pt.id = la.payment_type_id and pt.is_deleted =0
+  
+          where la.is_deleted = 0
+            and la.id = #{id}
+      </select>
+  
+      <select id="selectApartGVoListByTypeandId" resultType="com.ls.lease.web.app.vo.graph.GraphVo">
+          select id,
+                 name,
+                 url
+          from graph_info
+          where is_deleted = 0
+            and item_type = 1
+            and item_id = #{apartment_id}
+      </select>
+      <select id="selectRoomGVoListByTypeandId" resultType="com.ls.lease.web.app.vo.graph.GraphVo">
+          select id,
+                 name,
+                 url
+          from graph_info
+          where is_deleted = 0
+            and item_type = 2
+            and item_id = #{room_id}
+      </select>
+  ```
+
   
 

@@ -1,6 +1,7 @@
 package com.ls.lease.web.app.mapper;
 
 import com.ls.lease.model.entity.LeaseAgreement;
+import com.ls.lease.web.app.vo.agreement.AgreementDetailVo;
 import com.ls.lease.web.app.vo.agreement.AgreementItemVo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
@@ -14,6 +15,8 @@ import java.util.List;
 */
 public interface LeaseAgreementMapper extends BaseMapper<LeaseAgreement> {
 
+    //根据租约id查询详细信息
+    AgreementDetailVo getDetailLeaseAgreementById(Long id);
 }
 
 

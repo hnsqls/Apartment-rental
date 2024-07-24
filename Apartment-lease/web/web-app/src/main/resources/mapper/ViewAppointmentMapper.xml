@@ -4,4 +4,32 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ls.lease.web.app.mapper.ViewAppointmentMapper">
 
+    <resultMap id="AppointmentItemVoMap" type="com.ls.lease.web.app.vo.appointment.AppointmentItemVo" autoMapping="true">
+        <id property="id" column="id"/>
+        <collection property="graphVoList" ofType="com.ls.lease.web.app.vo.graph.GraphVo" autoMapping="true"
+        select="selectGraphList" column="apartment_id"></collection>
+    </resultMap>
+    <select id="listItem" resultMap="AppointmentItemVoMap">
+        select va.id,
+               va.appointment_time,
+               va.appointment_status,
+               ai.name apartment_name,
+               ai.id apartment_id
+        from view_appointment va
+                 left join apartment_info ai
+                           on va.apartment_id = ai.id and ai.is_deleted = 0
+        where va.is_deleted = 0
+          and va.user_id = #{userId}
+        order by va.create_time desc
+    </select>
+
+    <select id="selectGraphList" resultType="com.ls.lease.web.app.vo.graph.GraphVo">
+        select name,
+               url
+        from graph_info
+        where is_deleted = 0
+          and item_type = 1
+          and item_id = #{apartment_id}
+    </select>
+
 </mapper>

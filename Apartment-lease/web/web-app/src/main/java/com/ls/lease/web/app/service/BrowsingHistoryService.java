@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ls.lease.model.entity.BrowsingHistory;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ls.lease.web.app.vo.history.HistoryItemVo;
+import org.springframework.scheduling.annotation.Async;
 
 /**
 * @author liubo
@@ -13,4 +14,12 @@ import com.ls.lease.web.app.vo.history.HistoryItemVo;
 */
 public interface BrowsingHistoryService extends IService<BrowsingHistory> {
     IPage<HistoryItemVo> pageItem(Page<HistoryItemVo> page, Long id);
+
+    /**
+     * 保存浏览信息
+     * @param userId
+     * @param id
+     */
+    @Async
+    void saveHistory(Long userId, Long id);
 }
