@@ -14,6 +14,9 @@ import java.util.List;
 public interface LeaseTermMapper extends BaseMapper<LeaseTerm> {
 
     List<LeaseTerm> selectListByRoomId(Long id);
+
+    //根据房间id查看可选租期
+    List<LeaseTerm> listByRoomId(Long id);
 }
 
 

@@ -15,4 +15,18 @@
                      where is_deleted = 0
                        and room_id = #{id})
     </select>
+
+<!--    根据房间id获得可选租期-->
+    <select id="listByRoomId" resultType="com.ls.lease.model.entity.LeaseTerm">
+        select id,
+               month_count,
+               unit
+        from lease_term
+        where is_deleted = 0
+          and id in (select lease_term_id
+                     from room_lease_term
+                     where is_deleted = 0
+                       and room_id = #{id})
+
+    </select>
 </mapper>

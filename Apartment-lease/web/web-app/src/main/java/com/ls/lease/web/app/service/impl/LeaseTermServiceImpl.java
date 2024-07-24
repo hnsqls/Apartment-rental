@@ -4,7 +4,11 @@ import com.ls.lease.model.entity.LeaseTerm;
 import com.ls.lease.web.app.mapper.LeaseTermMapper;
 import com.ls.lease.web.app.service.LeaseTermService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.checkerframework.checker.units.qual.A;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * @author liubo
@@ -15,6 +19,18 @@ import org.springframework.stereotype.Service;
 public class LeaseTermServiceImpl extends ServiceImpl<LeaseTermMapper, LeaseTerm>
         implements LeaseTermService {
 
+    @Autowired
+     private LeaseTermMapper leaseTermMapper;
+
+    /**
+     * 根据房间id查询可选租期
+     * @param id
+     * @return
+     */
+    @Override
+    public List<LeaseTerm> listByRoomId(Long id) {
+        return leaseTermMapper.listByRoomId(id);
+    }
 }
 
 

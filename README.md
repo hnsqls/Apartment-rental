@@ -4874,3 +4874,57 @@ public class BrowsingHistoryController {
 
 #### 6.根据房间ID获取可选租期
 
+* controller
+
+  在`LeaseTermController`中增加如下内容
+
+  ```java
+  public class LeaseTermController {
+  
+      @Autowired
+      private LeaseTermService leaseTermService;
+      @GetMapping("listByRoomId")
+      @Operation(summary = "根据房间id获取可选获取租期列表")
+      public Result<List<LeaseTerm>> list(@RequestParam Long id) {
+          List<LeaseTerm> result = leaseTermService.listByRoomId(id);
+          return Result.ok(result);
+      }
+  }
+  ```
+
+* service
+
+  ```java
+      List<LeaseTerm> listByRoomId(Long id);
+  
+     /**
+       * 根据房间id查询可选租期
+       * @param id
+       * @return
+       */
+      @Override
+      public List<LeaseTerm> listByRoomId(Long id) {
+          return leaseTermMapper.listByRoomId(id);
+      }
+  ```
+
+* mapper
+
+  ```xml
+  <!--    根据房间id获得可选租期-->
+      <select id="listByRoomId" resultType="com.ls.lease.model.entity.LeaseTerm">
+          select id,
+                 month_count,
+                 unit
+          from lease_term
+          where is_deleted = 0
+            and id in (select lease_term_id
+                       from room_lease_term
+                       where is_deleted = 0
+                         and room_id = #{id})
+  
+      </select>
+  ```
+
+  
+
