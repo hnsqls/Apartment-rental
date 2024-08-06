@@ -447,6 +447,8 @@ mybatis-plus:
 
 * 确定注入什么.需要实现MetaObjectHander如下
 
+在common模块下，`com.ls.lease.common.mp`包下
+
 ```java
 @Component
 public class MybatisMetaObjectHandler implements MetaObjectHandler {
@@ -551,6 +553,8 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
 
   - 1. 实现Converter接口  
 
+    在web.app模块下 `com.ls.lease.custom.converter`包下
+    
     ```java
     /**
      * 自定义 Converter 方式
@@ -580,11 +584,11 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
             }
             throw new IllegalArgumentException("code:" + code  +"非法");
         }
-    }
+}
     ```
 
     2. 在SpringMVC中注册自定义转换类
-
+    
        ```java
        @Configuration
        public class WebMvcConfiguration implements WebMvcConfigurer {
@@ -597,9 +601,9 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
                registry.addConverter(stringToItemType);
            }
        }
-       
+   
        ```
-
+    
        这样WebDateBind就能够转化String到枚举。（Springmvc虽然提供了String->枚举类型，但是不能满足外面的要求，Spring提供的自动转化是根据string的内容找枚举实例，我们需要根据string的内容对应的序号获取枚举类型）。
 
 #### 2. 更新或报错标签
